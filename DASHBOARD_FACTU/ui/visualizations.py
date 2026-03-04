@@ -9,7 +9,7 @@ import plotly.express as px
 import pandas as pd
 
 
-def plot_bar_chart(df, x_col, y_col, title, color=None):
+def plot_bar_chart(df, x_col, y_col, title, color=None, sortable=True, sort_key=None):
     """
     Crea un gráfico de barras con Plotly.
 
@@ -19,14 +19,34 @@ def plot_bar_chart(df, x_col, y_col, title, color=None):
         y_col (str): Columna para el eje Y
         title (str): Título del gráfico
         color (str): Columna para colorear (opcional)
+        sortable (bool): Si True, muestra opciones de ordenamiento
+        sort_key (str): Clave única para los widgets de ordenamiento
     """
     if df is None or df.empty:
         st.info("No hay datos para graficar.")
         return
 
+    # Crear copia del dataframe
+    df_plot = df.copy()
+
+    # Opción de ordenamiento
+    if sortable:
+        col1, col2 = st.columns([3, 1])
+        with col2:
+            sort_key_suffix = f"_{sort_key}" if sort_key else ""
+            orden = st.selectbox(
+                "Ordenar por:",
+                options=["Sin ordenar", "Mayor a Menor", "Menor a Mayor"],
+                key=f"sort_bar{sort_key_suffix}"
+            )
+
+            if orden == "Mayor a Menor":
+                df_plot = df_plot.sort_values(by=y_col, ascending=False)
+            elif orden == "Menor a Mayor":
+                df_plot = df_plot.sort_values(by=y_col, ascending=True)
+
     # Asegurar que la columna X se trate como texto (categoría) para evitar
     # que valores numéricos se muestren como decimales en el eje X
-    df_plot = df.copy()
     df_plot[x_col] = df_plot[x_col].astype(str)
 
     fig = px.bar(
@@ -48,7 +68,7 @@ def plot_bar_chart(df, x_col, y_col, title, color=None):
     st.plotly_chart(fig, use_container_width=True)
 
 
-def plot_line_chart(df, x_col, y_col, title, color=None):
+def plot_line_chart(df, x_col, y_col, title, color=None, sortable=True, sort_key=None):
     """
     Crea un gráfico de líneas con Plotly.
 
@@ -58,13 +78,36 @@ def plot_line_chart(df, x_col, y_col, title, color=None):
         y_col (str): Columna para el eje Y
         title (str): Título del gráfico
         color (str): Columna para colorear (opcional)
+        sortable (bool): Si True, muestra opciones de ordenamiento
+        sort_key (str): Clave única para los widgets de ordenamiento
     """
     if df is None or df.empty:
         st.info("No hay datos para graficar.")
         return
 
+    # Crear copia del dataframe
+    df_plot = df.copy()
+
+    # Opción de ordenamiento
+    if sortable:
+        col1, col2 = st.columns([3, 1])
+        with col2:
+            sort_key_suffix = f"_{sort_key}" if sort_key else ""
+            orden = st.selectbox(
+                "Ordenar por:",
+                options=["Por Fecha", "Mayor a Menor", "Menor a Mayor"],
+                key=f"sort_line{sort_key_suffix}"
+            )
+
+            if orden == "Mayor a Menor":
+                df_plot = df_plot.sort_values(by=y_col, ascending=False)
+            elif orden == "Menor a Mayor":
+                df_plot = df_plot.sort_values(by=y_col, ascending=True)
+            else:  # Por Fecha
+                df_plot = df_plot.sort_values(by=x_col)
+
     fig = px.line(
-        df,
+        df_plot,
         x=x_col,
         y=y_col,
         title=title,
@@ -115,7 +158,9 @@ def plot_productivity_charts(metricas, tipo="Productividad"):
             metricas['por_usuario'],
             x_col=metricas['por_usuario'].columns[0],  # Primera columna (usuario)
             y_col='CANTIDAD',
-            title=f"{tipo} por Usuario"
+            title=f"{tipo} por Usuario",
+            sortable=True,
+            sort_key=f"{tipo}_usuario"
         )
 
     # Gráfico por fecha
@@ -125,5 +170,7 @@ def plot_productivity_charts(metricas, tipo="Productividad"):
             metricas['por_fecha'],
             x_col='FECHA',
             y_col='CANTIDAD',
-            title=f"{tipo} por Fecha"
+            title=f"{tipo} por Fecha",
+            sortable=True,
+            sort_key=f"{tipo}_fecha"
         )
