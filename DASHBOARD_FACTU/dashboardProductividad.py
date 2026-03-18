@@ -84,7 +84,7 @@ with col1:
             st.write(df_temp.columns.tolist())
 
             # Botón para procesar
-            if st.button("💾 Procesar y Guardar Legalizaciones", use_container_width=True):
+            if st.button("💾 Procesar y Guardar Legalizaciones", use_container_width="stretch"):
                 try:
                     # Verificar que existe la columna CONVENIO
                     if 'CONVENIO' not in df_temp.columns:
@@ -192,7 +192,7 @@ start_date, end_date = st.sidebar.date_input(
 )
 
 # Botón para limpiar datos
-if st.sidebar.button("🗑️ Limpiar todos los datos", use_container_width=True):
+if st.sidebar.button("🗑️ Limpiar todos los datos", use_container_width="stretch"):
     for key in FILES.keys():
         filepath = FILES[key]
         if os.path.exists(filepath):

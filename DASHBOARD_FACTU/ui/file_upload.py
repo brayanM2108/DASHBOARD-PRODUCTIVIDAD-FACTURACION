@@ -44,22 +44,22 @@ def render_clear_data_section():
     col1, col2 = st.columns(2)
 
     with col1:
-        if st.button("🗑️ Limpiar Legalizaciones", key="btn_clear_leg", use_container_width=True):
+        if st.button("🗑️ Limpiar Legalizaciones", key="btn_clear_leg", use_container_width="stretch"):
             clear_data_type(["df_ppl", "df_convenios"], ["ppl", "convenios"], "Legalizaciones")
 
-        if st.button("🗑️ Limpiar RIPS", key="btn_clear_rips", use_container_width=True):
+        if st.button("🗑️ Limpiar RIPS", key="btn_clear_rips", use_container_width="stretch"):
             clear_data_type(["df_rips"], ["rips"], "RIPS")
 
     with col2:
-        if st.button("🗑️ Limpiar Facturación", key="btn_clear_fact", use_container_width=True):
+        if st.button("🗑️ Limpiar Facturación", key="btn_clear_fact", use_container_width="stretch"):
             clear_data_type(["df_facturacion"], ["facturacion"], "Facturación")
 
-        if st.button("🗑️ Limpiar Fact. Electrónica", key="btn_clear_fact_elec", use_container_width=True):
+        if st.button("🗑️ Limpiar Fact. Electrónica", key="btn_clear_fact_elec", use_container_width="stretch"):
             clear_data_type(["df_facturacion_electronica"], ["facturacion_electronica"], "Facturación Electrónica")
 
     st.divider()
 
-    if st.button("🗑️ LIMPIAR TODOS LOS DATOS", key="btn_clear_all", type="primary", use_container_width=True):
+    if st.button("🗑️ LIMPIAR TODOS LOS DATOS", key="btn_clear_all", type="primary", use_container_width="stretch"):
         clear_all_data()
 
 
@@ -347,7 +347,7 @@ def render_facturadores_reload():
     col1, col2 = st.columns(2)
 
     with col1:
-        if st.button("🔄 Recargar Facturadores", key="btn_reload_fact", use_container_width=True):
+        if st.button("🔄 Recargar Facturadores", key="btn_reload_fact", use_container_width="stretch"):
             with st.spinner("Recargando facturadores..."):
                 df_facturadores = load_facturadores_master()
 
@@ -362,7 +362,7 @@ def render_facturadores_reload():
                 st.rerun()
 
     with col2:
-        if st.button("🔄 Recruzar RIPS", key="btn_recruzar_rips", use_container_width=True):
+        if st.button("🔄 Recruzar RIPS", key="btn_recruzar_rips", use_container_width="stretch"):
             with st.spinner("Recruzando RIPS con facturadores..."):
                 df_rips = st.session_state.get('df_rips')
                 df_facturadores = st.session_state.get('df_facturadores')

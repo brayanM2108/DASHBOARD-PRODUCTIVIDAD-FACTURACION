@@ -330,7 +330,7 @@ if st.session_state.df_facturadores is not None and not st.session_state.df_fact
         st.success(f"✅ Archivo **{FACTURADORES_FILE}** cargado: {len(st.session_state.df_facturadores):,} facturadores")
         st.caption(f"📂 Ubicación: `{os.path.abspath(FACTURADORES_FILE)}`")
     with col_ind2:
-        if st.button("🔄 Recargar", key="recargar_facturadores", use_container_width=True):
+        if st.button("🔄 Recargar", key="recargar_facturadores", use_container_width="stretch"):
             st.session_state.df_facturadores = cargar_facturadores_desde_local()
             st.rerun()
 else:
@@ -391,7 +391,7 @@ with col1:
             st.info(f"📋 Encabezados detectados en fila: {header_row + 1}")
 
             # Botón para procesar y separar los datos
-            if st.button("💾 Procesar y Guardar Legalizaciones", use_container_width=True):
+            if st.button("💾 Procesar y Guardar Legalizaciones", use_container_width="stretch"):
                 try:
                     # -------- FILTRO POR ESTADO --------
                     # Solo incluye LEGALIZACIONES con estado válido (Activa)
@@ -513,7 +513,7 @@ with col2:
             st.info(f"📋 Encabezados detectados en fila: {header_row + 1}")
 
             # Botón para procesar y separar los datos
-            if st.button("💾 Procesar y Guardar RIPS", use_container_width=True):
+            if st.button("💾 Procesar y Guardar RIPS", use_container_width="stretch"):
                 try:
                     # -------- FILTRO POR ESTADO --------
                     # Solo incluye RIPS con estado válido (finalizadas/aprobadas)
@@ -685,7 +685,7 @@ if 'temp_df_fact' in st.session_state and 'temp_df_fact_elec' in st.session_stat
         st.metric("Facturación Electrónica", f"{len(st.session_state.temp_df_fact_elec):,} filas")
 
     with col_resumen3:
-        if st.button("💾 Guardar Ambos Archivos de Facturación", use_container_width=True, type="primary"):
+        if st.button("💾 Guardar Ambos Archivos de Facturación", use_container_width="stretch", type="primary"):
             try:
                 # Guardar Facturación
                 st.session_state.df_facturacion = st.session_state.temp_df_fact
@@ -771,7 +771,7 @@ start_date, end_date = st.sidebar.date_input(
 
 # --- Botón para limpiar todos los datos ---
 # Elimina los archivos Parquet y reinicia el session_state
-if st.sidebar.button("🗑️ Limpiar todos los datos", use_container_width=True):
+if st.sidebar.button("🗑️ Limpiar todos los datos", use_container_width="stretch"):
     for key in FILES.keys():
         filepath = FILES[key]
         if os.path.exists(filepath):

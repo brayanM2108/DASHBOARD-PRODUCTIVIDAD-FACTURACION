@@ -47,7 +47,7 @@ if 'initialized' not in st.session_state:
 
 # --- 4. BARRA LATERAL (CONTROL Y FILTROS GLOBALES) ---
 st.sidebar.header("📥 Control de Datos")
-if st.sidebar.button("🔄 Sincronizar Google Sheets", use_container_width=True):
+if st.sidebar.button("🔄 Sincronizar Google Sheets", use_container_width="stretch"):
     with st.spinner("Actualizando datos..."):
         st.session_state.df_ppl = load_sheet("PPL")
         st.session_state.df_convenios = load_sheet("Convenios")

@@ -119,7 +119,7 @@ def render_facturacion_section():
                 y_col='CANTIDAD',
                 title="Facturación por Usuario"
             )
-            st.dataframe(df_por_usuario, use_container_width=True)
+            st.dataframe(df_por_usuario, use_container_width="stretch")
 
     # Calcular métricas
     metricas = calcular_productividad_facturacion(df_filtered)

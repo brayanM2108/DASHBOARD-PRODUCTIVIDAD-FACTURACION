@@ -13,7 +13,7 @@ def render_tab_procesos():
 
     st.info("Sincroniza los datos para poder visualizar las métricas y gráficos relacionados.")
 
-    if st.button("🔄 Sincronizar Desde Google Sheets", key="btn_sync_sheets", use_container_width=True):
+    if st.button("🔄 Sincronizar Desde Google Sheets", key="btn_sync_sheets", use_container_width="stretch"):
             with st.spinner("Sincronizando datos desde Google Sheets..."):
                 try:
 
@@ -176,7 +176,7 @@ def render_tab_procesos():
         fig1 = px.bar(resumen_persona, x='NOMBRE', y='CANTIDAD',
                       color='CANTIDAD', color_continuous_scale='Blues')
         fig1.update_layout(xaxis_tickangle=-45)
-        st.plotly_chart(fig1, use_container_width=True)
+        st.plotly_chart(fig1, use_container_width="stretch")
 
     with col2:
         # Determinar qué mostrar en el gráfico circular según filtros
@@ -191,10 +191,10 @@ def render_tab_procesos():
             resumen_proceso = df_filtrado.groupby('PROCESO')['CANTIDAD'].sum().reset_index()
             fig2 = px.pie(resumen_proceso, values='CANTIDAD', names='PROCESO', hole=0.4)
 
-        st.plotly_chart(fig2, use_container_width=True)
+        st.plotly_chart(fig2, use_container_width="stretch")
 
     # Gráfico de tendencia temporal
     st.subheader("Tendencia Temporal")
     df_temporal = df_filtrado.groupby('FECHA')['CANTIDAD'].sum().reset_index()
     fig3 = px.line(df_temporal, x='FECHA', y='CANTIDAD', markers=True)
-    st.plotly_chart(fig3, use_container_width=True)
+    st.plotly_chart(fig3, use_container_width="stretch")

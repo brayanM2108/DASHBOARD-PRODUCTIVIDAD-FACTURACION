@@ -21,7 +21,7 @@ def show_metric_card(label, value, delta=None, delta_color="normal"):
     st.metric(label=label, value=value, delta=delta, delta_color=delta_color)
 
 
-def show_dataframe(df, title=None, use_container_width=True):
+def show_dataframe(df, title=None, use_container_width="stretch"):
     """
     Muestra un DataFrame con título opcional.
 
