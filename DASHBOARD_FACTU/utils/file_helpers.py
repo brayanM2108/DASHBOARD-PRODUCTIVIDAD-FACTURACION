@@ -1,7 +1,7 @@
 """
-Utilidades para manejo de archivos
+File Management Utilities
 ===================================
-Funciones auxiliares para leer, escribir y manipular archivos.
+Auxiliary functions for reading, writing, and manipulating files.
 """
 
 import pandas as pd
@@ -10,14 +10,7 @@ import os
 
 def save_to_parquet(df, filepath):
     """
-    Guarda un DataFrame en formato Parquet.
-
-    Args:
-        df (pd.DataFrame): DataFrame a guardar
-        filepath (str): Ruta del archivo
-
-    Returns:
-        bool: True si se guardó exitosamente, False en caso contrario
+    Save a DataFrame in Parquet format.
     """
     if df is None or df.empty:
         return False
@@ -32,13 +25,7 @@ def save_to_parquet(df, filepath):
 
 def load_from_parquet(filepath):
     """
-    Carga un DataFrame desde un archivo Parquet.
-
-    Args:
-        filepath (str): Ruta del archivo
-
-    Returns:
-        pd.DataFrame or None: DataFrame cargado o None si no existe
+    Load a DataFrame from a Parquet file.
     """
     if not os.path.exists(filepath):
         return None
@@ -52,17 +39,10 @@ def load_from_parquet(filepath):
 
 def detect_header_row(df_raw, column_marker):
     """
-    Detecta la fila de encabezados en un DataFrame.
+    Detects the header row in a DataFrame.
 
-    Busca una fila que contenga el marcador especificado para
-    identificar dónde comienzan los encabezados reales.
+    Looks for a row containing the specified marker to identify where the actual headers begin.
 
-    Args:
-        df_raw (pd.DataFrame): DataFrame sin procesar
-        column_marker (str): Texto marcador de la columna (ej: "ID_LEGALIZACION")
-
-    Returns:
-        int or None: Índice de la fila de encabezados o None si no se encuentra
     """
     for i, row in df_raw.iterrows():
         row_str = row.astype(str).str.strip().str.upper()
@@ -73,15 +53,9 @@ def detect_header_row(df_raw, column_marker):
 
 def normalize_column_names(df):
     """
-    Normaliza los nombres de las columnas de un DataFrame.
+    Normalizes column names in a DataFrame.
 
-    Elimina espacios, saltos de línea y convierte a mayúsculas.
-
-    Args:
-        df (pd.DataFrame): DataFrame a normalizar
-
-    Returns:
-        pd.DataFrame: DataFrame con columnas normalizadas
+    Removes spaces, line breaks, and converts to uppercase.
     """
     df.columns = (
         df.columns
@@ -95,36 +69,25 @@ def normalize_column_names(df):
 
 def read_file_robust(file, column_marker):
     """
-    Lee un archivo de forma robusta detectando automáticamente los encabezados.
-
-    Args:
-        file: Objeto de archivo de Streamlit
-        column_marker (str): Marcador para detectar encabezados
-
-    Returns:
-        tuple: (df, header_row) o (None, None) si falla
+    Reads a file robustly by automatically detecting headers.
     """
     try:
-        # Leer archivo sin asumir encabezados
         if file.name.endswith('.csv'):
             df_raw = pd.read_csv(file, header=None)
         else:
             df_raw = pd.read_excel(file, header=None)
 
-        # Detectar fila de encabezados
         header_row = detect_header_row(df_raw, column_marker)
 
         if header_row is None:
             return None, None
 
-        # Releer con encabezados correctos
-        file.seek(0)  # Reiniciar cursor del archivo
+        file.seek(0)
         if file.name.endswith('.csv'):
             df = pd.read_csv(file, header=header_row)
         else:
             df = pd.read_excel(file, header=header_row)
 
-        # Normalizar columnas
         df = normalize_column_names(df)
 
         return df, header_row
