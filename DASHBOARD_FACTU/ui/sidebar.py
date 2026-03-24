@@ -1,19 +1,24 @@
-# Panel lateral con estado de datos y funciones útiles.
+"""
+Sidebar panel
+===========================
+Side panel with data status and useful functions.
+"""
 
 import streamlit as st
 import pandas as  pd
+from data.loaders import load_all_persisted_frames
 
-def _mostrar_estado_datos():
-    """Muestra el estado de los datos cargados con indicadores visuales."""
+def _show_data_status():
+    """It displays the status of the loaded data with visual indicators."""
 
     datos_estado = [
-        ('PPL', 'df_ppl'),
-        ('Convenios', 'df_convenios'),
-        ('RIPS', 'df_rips'),
-        ('Facturación', 'df_facturacion'),
-        ('Facturadores', 'df_facturadores'),
-        ('Fact. Electrónica', 'df_facturacion_electronica'),
-        ('Procesos', 'df_procesos')
+        ('PPL', 'ppl_legalizations_df'),
+        ('Convenios', 'agreement_legalizations_df'),
+        ('RIPS', 'rips_df'),
+        ('Facturación', 'billing_df'),
+        ('Facturadores', 'billers_df'),
+        ('Fact. Electrónica', 'electronic_billing_df'),
+        ('Procesos', 'administrative_processes_df')
     ]
 
     for nombre, key in datos_estado:
@@ -26,38 +31,31 @@ def _mostrar_estado_datos():
 
 
 def render_state_data():
-    """Panel lateral con estado de datos y funciones útiles."""
+    """Side panel with data status and useful functions."""
 
     with st.sidebar:
         st.header("📊 Estado de Datos")
 
-        # Estado actual (ya lo tienes)
-        _mostrar_estado_datos()
+        _show_data_status()
 
         st.divider()
-
-        # 1. Resumen rápido
-        _mostrar_resumen_rapido()
+        _show_quick_summary()
 
         st.divider()
-
-        # 2. Acciones rápidas
-        _mostrar_acciones_rapidas()
+        _show_quick_actions()
 
         st.divider()
-
-        # 3. Última actualización
-        _mostrar_ultima_actualizacion()
+        _show_last_update()
 
 
-def _mostrar_resumen_rapido():
-    """Muestra métricas resumidas de productividad."""
+def _show_quick_summary():
+    """Display quick summary metrics."""
     st.subheader("📈 Resumen Rápido")
 
-    df_ppl = st.session_state.get('df_ppl')
-    df_convenios = st.session_state.get('df_convenios')
-    df_rips = st.session_state.get('df_rips')
-    df_procesos = st.session_state.get('df_procesos')
+    df_ppl = st.session_state.get('ppl_legalizations_df')
+    df_convenios = st.session_state.get('agreement_legalizations_df')
+    df_rips = st.session_state.get('rips_df')
+    df_procesos = st.session_state.get('administrative_processes_df')
     total_legalizaciones = 0
     if df_ppl is not None:
         total_legalizaciones += len(df_ppl)
@@ -70,7 +68,7 @@ def _mostrar_resumen_rapido():
         st.metric("Total Procesos", len(df_procesos))
 
 
-def _mostrar_acciones_rapidas():
+def _show_quick_actions():
     """Botones de acciones rápidas."""
     st.subheader("⚡ Acciones Rápidas")
 
@@ -78,14 +76,14 @@ def _mostrar_acciones_rapidas():
 
     with col1:
         if st.button("🔄 Recargar", help="Recarga todos los datos"):
-            _recargar_datos()
+            _reload_data()
 
     with col2:
         if st.button("🗑️ Limpiar", help="Limpia todos los datos"):
-            _limpiar_datos()
+            _clear_data()
 
-def _mostrar_ultima_actualizacion():
-    """Muestra cuándo se actualizaron los datos."""
+def _show_last_update():
+    """Display last data update timestamp."""
     st.subheader("🕐 Última Actualización")
 
     ultima = st.session_state.get('ultima_actualizacion')
@@ -95,21 +93,33 @@ def _mostrar_ultima_actualizacion():
         st.caption("Sin información")
 
 
-def _recargar_datos():
-    """Recarga datos desde archivos persistidos."""
-    from data.loaders import load_all_persisted_data
+def _reload_data():
+    """Reload persisted datasets into session state."""
 
-    data = load_all_persisted_data()
-    st.session_state['df_ppl'] = data.get('ppl')
-    st.session_state['df_convenios'] = data.get('convenios')
-    st.session_state['df_rips'] = data.get('rips')
+
+    data = load_all_persisted_frames()
+    st.session_state["ppl_legalizations_df"] = data.get("ppl_legalizations")
+    st.session_state["agreement_legalizations_df"] = data.get("agreement_legalizations")
+    st.session_state["rips_df"] = data.get("rips")
+    st.session_state["billing_df"] = data.get("billing")
+    st.session_state["billers_df"] = data.get("billers")
+    st.session_state["electronic_billing_df"] = data.get("electronic_billing")
+    st.session_state["administrative_processes_df"] = data.get("administrative_processes")
     st.session_state['ultima_actualizacion'] = pd.Timestamp.now().strftime("%d/%m/%Y %H:%M")
     st.rerun()
 
 
-def _limpiar_datos():
-    """Limpia todos los datos del session_state."""
-    keys = ['df_ppl', 'df_convenios', 'df_rips', 'df_facturacion', 'df_facturadores']
+def _clear_data():
+    """Clear session-state datasets."""
+    keys = [
+        'ppl_legalizations_df',
+        'agreement_legalizations_df',
+        'rips_df',
+        'billing_df',
+        'billers_df',
+        'electronic_billing_df',
+        'administrative_processes_df',
+    ]
     for key in keys:
         st.session_state[key] = None
     st.rerun()

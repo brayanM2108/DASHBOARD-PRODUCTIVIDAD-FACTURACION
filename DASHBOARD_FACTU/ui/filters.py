@@ -1,24 +1,18 @@
 """
-Filtros y barra lateral
-========================
-Componentes de filtrado para el dashboard.
+Filters and sidebar helpers
+===========================
+Reusable filtering components for the dashboard UI.
 """
 
 import streamlit as st
 
 from utils.date_helpers import get_default_date_range
-from service import obtener_lista_facturadores
+from service.billers_service import get_billers_list
 
 
 def render_date_filter(key_prefix=""):
     """
-    Renderiza un filtro de fechas independiente.
-
-    Args:
-        key_prefix (str): Prefijo para las keys de Streamlit
-
-    Returns:
-        tuple: (start_date, end_date)
+    Render an independent date range filter.
     """
     start_date_default, end_date_default = get_default_date_range(30)
 
@@ -41,24 +35,17 @@ def render_date_filter(key_prefix=""):
 
 def render_user_filter(df_facturadores, key_prefix=""):
     """
-    Renderiza un filtro de usuarios independiente.
-
-    Args:
-        df_facturadores (pd.DataFrame): DataFrame de facturadores
-        key_prefix (str): Prefijo para las keys de Streamlit
-
-    Returns:
-        list: Lista de usuarios seleccionados
+    Render an independent biller/user filter.
     """
-    lista_facturadores = obtener_lista_facturadores(df_facturadores)
+    billers_list = get_billers_list(df_facturadores)
 
-    if not lista_facturadores:
+    if not billers_list:
         st.info("No hay facturadores disponibles.")
         return ['Todos']
 
     usuarios_seleccionados = st.multiselect(
         "Seleccionar Facturador",
-        options=['Todos'] + lista_facturadores,
+        options=['Todos'] + billers_list,
         default=['Todos'],
         key=f"{key_prefix}_usuarios"
     )
