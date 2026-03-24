@@ -1,192 +1,211 @@
 """
-Carga y guardado de datos
-==========================
-Funciones para cargar archivos desde diferentes fuentes y
-guardar datos procesados en formato Parquet.
+Data loading and persistence
+============================
+Functions to load files from different sources and persist processed data as Parquet.
 """
+
+import io
+from typing import Any, Mapping
 
 import pandas as pd
 import streamlit as st
-import io
-import os
-from config.settings import FILES, FACTURADORES_FILE, FACTURADORES_SHEET
-from utils.file_helpers import save_to_parquet, load_from_parquet, read_file_robust
+
+from config.settings import FACTURADORES_FILE, FACTURADORES_SHEET, FILES
+from utils.file_helpers import load_from_parquet, read_file_robust, save_to_parquet
+
+# Canonical dataset keys (English)
+DATASET_TO_FILE_KEY = {
+    "ppl_legalizations": "PPL",
+    "agreement_legalizations": "Convenios",
+    "rips": "RIPS",
+    "billing": "Facturacion",
+    "billers": "Facturadores",
+    "electronic_billing": "FacturacionElectronica",
+    "administrative_processes": "ArchivoProcesos",
+}
+
+# Required columns for processes dataset
+REQUIRED_PROCESS_COLUMNS = ("FECHA", "NOMBRE", "DOCUMENTO", "PROCESO", "CANTIDAD")
+
+# Error messages
+ERROR_MISSING_PROCESS_COLUMNS = "Missing required process columns: {columns}"
+ERROR_PROCESS_LOAD_FAILED = "Failed to load processes dataset: {error}"
 
 
-def load_all_persisted_data():
+
+def _normalize_columns_upper(df: pd.DataFrame) -> pd.DataFrame:
+    """Normalize dataframe columns to stripped uppercase."""
+    df.columns = df.columns.astype(str).str.strip().str.upper()
+    return df
+
+
+def _build_google_sheets_export_url(file_or_url: Any) -> Any:
     """
-    Carga todos los archivos Parquet persistidos.
-
-    Returns:
-        dict: Diccionario con DataFrames cargados
+    Convert a Google Sheets edit URL into an Excel export URL.
+    If input is not a Google Sheets URL, return it unchanged.
     """
-    return {
-        "ppl": load_from_parquet(FILES["PPL"]),
-        "convenios": load_from_parquet(FILES["Convenios"]),
-        "rips": load_from_parquet(FILES["RIPS"]),
-        "facturacion": load_from_parquet(FILES["Facturacion"]),
-        "facturadores": load_from_parquet(FILES["Facturadores"]),
-        "facturacion_electronica": load_from_parquet(FILES["FacturacionElectronica"]),
-        "procesos": load_from_parquet(FILES["ArchivoProcesos"])
-    }
+    if not isinstance(file_or_url, str):
+        return file_or_url
+
+    if "docs.google.com/spreadsheets" not in file_or_url:
+        return file_or_url
+
+    if "/edit" in file_or_url and "/d/" in file_or_url:
+        sheet_id = file_or_url.split("/d/")[1].split("/")[0]
+        return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx"
+
+    return file_or_url
 
 
-def save_all_data(data_dict):
-    """
-    Guarda todos los DataFrames en formato Parquet.
+def load_all_persisted_frames() -> dict[str, pd.DataFrame | None]:
+    """Load all persisted parquet datasets from parquet."""
+    """Load all persisted parquet datasets using canonical English keys."""
+    datasets = {}
+    for dataset_key, file_key in DATASET_TO_FILE_KEY.items():
+        datasets[dataset_key] = load_from_parquet(FILES[file_key])
+    return datasets
 
-    Args:
-        data_dict (dict): Diccionario con DataFrames a guardar
-            Claves esperadas: 'ppl', 'convenios', 'rips', 'facturacion',
-            'facturadores', 'facturacion_electronica', 'procesos'
+def save_all_persisted_frames(data_by_dataset: Mapping[str, pd.DataFrame]) -> dict[str, bool]:
+    """Persist all provided datasets as parquet using canonical English keys."""
+    results: dict[str, bool] = {}
 
-    Returns:
-        dict: Diccionario con resultado de cada operación (True/False)
-    """
-    results = {}
-
-    if "ppl" in data_dict:
-        results["ppl"] = save_to_parquet(data_dict["ppl"], FILES["PPL"])
-
-    if "convenios" in data_dict:
-        results["convenios"] = save_to_parquet(data_dict["convenios"], FILES["Convenios"])
-
-    if "rips" in data_dict:
-        results["rips"] = save_to_parquet(data_dict["rips"], FILES["RIPS"])
-
-    if "facturacion" in data_dict:
-        results["facturacion"] = save_to_parquet(data_dict["facturacion"], FILES["Facturacion"])
-
-    if "facturadores" in data_dict:
-        results["facturadores"] = save_to_parquet(data_dict["facturadores"], FILES["Facturadores"])
-
-    if "facturacion_electronica" in data_dict:
-        results["facturacion_electronica"] = save_to_parquet(
-            data_dict["facturacion_electronica"],
-            FILES["FacturacionElectronica"]
-        )
-
-    if "procesos" in data_dict:
-        results["procesos"] = save_to_parquet(data_dict["procesos"], FILES["ArchivoProcesos"])
+    for dataset_key, df in data_by_dataset.items():
+        file_key = DATASET_TO_FILE_KEY.get(dataset_key)
+        if file_key is None:
+            continue
+        results[dataset_key] = save_to_parquet(df, FILES[file_key])
 
     return results
 
 
-def load_facturadores_master():
+def _load_billers_from_secrets(secrets_source: Mapping[str, Any] | None = None) -> pd.DataFrame | None:
     """
-    Carga el archivo maestro de facturadores.
-    Intenta primero desde Streamlit Secrets (producción),
-    luego desde archivo local (desarrollo).
+    Load billers master dataset from Streamlit secrets.
+    Supports both legacy and English secret keys:
+    - facturadores.data
+    - billers.data
+    """
+    secrets = secrets_source
+    if secrets is None:
+        try:
+            secrets = st.secrets
+        except Exception:
+            secrets = {}
 
-    Returns:
-        pd.DataFrame or None: DataFrame con facturadores o None si falla
+    try:
+        if "billers" in secrets and "data" in secrets["billers"]:
+            csv_data = secrets["billers"]["data"]
+            df = pd.read_csv(io.StringIO(csv_data))
+            return _normalize_columns_upper(df)
+
+        if "facturadores" in secrets and "data" in secrets["facturadores"]:
+            csv_data = secrets["facturadores"]["data"]
+            df = pd.read_csv(io.StringIO(csv_data))
+            return _normalize_columns_upper(df)
+
+    except Exception:
+        return None
+
+    return None
+
+
+def _load_billers_from_file() -> pd.DataFrame | None:
+    """Load billers master dataset from local Excel file."""
+    try:
+        df = pd.read_excel(FACTURADORES_FILE, sheet_name=FACTURADORES_SHEET)
+        return _normalize_columns_upper(df)
+    except Exception:
+        return None
+
+
+def load_billers_master(secrets_source: Mapping[str, Any] | None = None) -> pd.DataFrame | None:
     """
-    # Intentar cargar desde Streamlit Secrets (producción)
-    df = _load_facturadores_from_secrets()
+    Load billers master data.
+    Priority:
+    1) Streamlit secrets (production)
+    2) Local Excel file (development)
+    """
+    df = _load_billers_from_secrets(secrets_source=secrets_source)
     if df is not None:
         return df
 
-    # Intentar cargar desde archivo local (desarrollo)
-    df = _load_facturadores_from_file()
+    return _load_billers_from_file()
+
+
+def load_uploaded_dataframe(file, header_marker: str) -> pd.DataFrame | None:
+    """Load uploaded file by auto-detecting real header row using marker."""
+    df, _ = read_file_robust(file, header_marker)
     return df
 
 
-def _load_facturadores_from_secrets():
+def load_processes_data(file_or_url) -> pd.DataFrame:
     """
-    Carga facturadores desde Streamlit Secrets (para producción/deploy).
-
-    Returns:
-        pd.DataFrame or None
+    Load administrative processes data from uploaded Excel file or Google Sheets URL.
     """
     try:
-        if "facturadores" in st.secrets and "data" in st.secrets["facturadores"]:
-            csv_data = st.secrets["facturadores"]["data"]
-            df = pd.read_csv(io.StringIO(csv_data))
-            df.columns = df.columns.str.strip().str.upper()
-            return df
-    except Exception as e:
-        print(f"No se pudo cargar facturadores desde secrets: {e}")
+        source = _build_google_sheets_export_url(file_or_url)
+        df = pd.read_excel(source)
+        df = _normalize_columns_upper(df)
 
-    return None
+        missing = [col for col in REQUIRED_PROCESS_COLUMNS if col not in df.columns]
+        if missing:
+            raise ValueError(ERROR_MISSING_PROCESS_COLUMNS.format(columns=", ".join(missing)))
 
+        df["FECHA"] = pd.to_datetime(df["FECHA"], format="%d/%m/%Y", errors="coerce")
+        df["CANTIDAD"] = pd.to_numeric(df["CANTIDAD"], errors="coerce")
 
-def _load_facturadores_from_file():
-    """
-    Carga facturadores desde archivo Excel local (para desarrollo).
-
-    Returns:
-        pd.DataFrame or None
-    """
-    try:
-        df = pd.read_excel(FACTURADORES_FILE, sheet_name=FACTURADORES_SHEET)
-        df.columns = df.columns.str.strip().str.upper()
-        return df
-    except Exception as e:
-        print(f"No se pudo cargar facturadores desde archivo: {e}")
-
-    return None
-
-def load_uploaded_file(file, column_marker):
-    """
-    Carga un archivo subido por el usuario.
-
-    Args:
-        file: Objeto de archivo de Streamlit
-        column_marker (str): Marcador para detectar encabezados
-
-    Returns:
-        pd.DataFrame or None: DataFrame procesado o None si falla
-    """
-    df, header_row = read_file_robust(file, column_marker)
-    return df
-
-
-def load_procesos(file_or_url):
-    """
-     Carga datos de procesos administrativos desde Excel o Google Sheets
-
-     Args:
-         file_or_url: Archivo subido o URL de Google Sheets
-
-     Returns:
-         pd.DataFrame: DataFrame con los datos de procesos
-     """
-    try:
-        # Si es una URL de Google Sheets
-        if isinstance(file_or_url, str) and 'docs.google.com/spreadsheets' in file_or_url:
-            # Convertir URL de Google Sheets a formato exportable
-            if '/edit' in file_or_url:
-                sheet_id = file_or_url.split('/d/')[1].split('/')[0]
-                url_export = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx'
-            else:
-                url_export = file_or_url
-
-            df = pd.read_excel(url_export)
-        else:
-            # Es un archivo subido
-            df = pd.read_excel(file_or_url)
-
-        # Normalizar nombres de columnas
-        df.columns = df.columns.str.strip().str.upper()
-
-        # Validar columnas requeridas
-        columnas_requeridas = ['FECHA', 'NOMBRE', 'DOCUMENTO', 'PROCESO', 'CANTIDAD']
-        columnas_faltantes = [col for col in columnas_requeridas if col not in df.columns]
-
-        if columnas_faltantes:
-            raise ValueError(f"Faltan las siguientes columnas: {', '.join(columnas_faltantes)}")
-
-        # Convertir fecha al formato correcto
-        df['FECHA'] = pd.to_datetime(df['FECHA'], format='%d/%m/%Y', errors='coerce')
-
-        # Convertir cantidad a numérico
-        df['CANTIDAD'] = pd.to_numeric(df['CANTIDAD'], errors='coerce')
-
-        # Eliminar filas con valores nulos en columnas críticas
-        df = df.dropna(subset=['FECHA', 'NOMBRE', 'CANTIDAD'])
-
+        df = df.dropna(subset=["FECHA", "NOMBRE", "CANTIDAD"])
         return df
 
-    except Exception as e:
-        raise ValueError(f"Error al cargar archivo de procesos: {str(e)}")
+    except Exception as exc:
+        raise ValueError(ERROR_PROCESS_LOAD_FAILED.format(error=str(exc))) from exc
+
+def extract_google_sheet_ids(sheet_url: str) -> tuple[str | None, str]:
+    """
+    Extract sheet_id and gid from a Google Sheets URL.
+    Returns (None, "0") when sheet_id cannot be extracted.
+    """
+    import re
+
+    if not isinstance(sheet_url, str) or not sheet_url.strip():
+        return None, "0"
+
+    id_match = re.search(r"/spreadsheets/d/([a-zA-Z0-9-_]+)", sheet_url)
+    if not id_match:
+        return None, "0"
+
+    sheet_id = id_match.group(1)
+
+    gid = "0"
+    gid_match = re.search(r"[#&]gid=([0-9]+)", sheet_url)
+    if gid_match:
+        gid = gid_match.group(1)
+
+    return sheet_id, gid
+
+
+def build_google_sheet_csv_url(sheet_id: str, gid: str = "0") -> str:
+    """
+    Build CSV export URL from sheet_id and gid.
+    """
+    return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
+
+
+def load_google_sheet_csv(sheet_url: str) -> pd.DataFrame:
+    """
+    Load raw dataframe from Google Sheets using CSV export endpoint.
+    """
+    sheet_id, gid = extract_google_sheet_ids(sheet_url)
+    if not sheet_id:
+        raise ValueError("Could not extract Google Sheet ID from URL.")
+
+    csv_url = build_google_sheet_csv_url(sheet_id, gid)
+    return pd.read_csv(csv_url)
+
+
+def persist_administrative_processes(df: pd.DataFrame) -> dict[str, bool]:
+    """
+    Persist processed administrative processes dataframe using canonical key.
+    """
+    return save_all_persisted_frames({"administrative_processes": df})
 
