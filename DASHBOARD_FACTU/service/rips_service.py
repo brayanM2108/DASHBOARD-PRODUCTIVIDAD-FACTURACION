@@ -1,152 +1,182 @@
 """
-Lógica de negocio - RIPS
-=========================
-Funciones específicas para el procesamiento y análisis de RIPS.
+Business logic - RIPS
+=====================
+Functions for RIPS processing and productivity analytics.
 """
 
 import pandas as pd
-from data.processors import process_rips, merge_with_facturadores, aggregate_by_user, filtrar_por_facturadores
-from data.validators import validate_rips, find_column_variant
+
+from data.processors import (
+    process_rips_data,
+    merge_with_billers,
+    aggregate_records_by_user,
+    filter_by_billers,
+)
+from data.validators import (
+    validate_rips_dataframe,
+    find_first_column_variant,
+)
 from config.settings import COLUMN_NAMES
 from utils.date_helpers import filter_by_date_range
 
 
-def procesar_rips(df, df_facturadores=None):
-    """
-    Procesa el DataFrame de RIPS.
-    """
-    is_valid, message = validate_rips(df)
-    if not is_valid:
-        return {"error": message, "df_rips": None}
+# Centralized error messages.
+ERROR_VALIDATION_FAILED = "RIPS validation failed"
 
-    df_rips = process_rips(df)
-
-    if df_facturadores is not None and df_rips is not None:
-        usuario_col = find_column_variant(df_rips, COLUMN_NAMES["usuario"])
-        if usuario_col:
-            df_rips = merge_with_facturadores(df_rips, df_facturadores, usuario_col)
-
-        # Cruzar documento a nombre
-        df_rips = cruzar_documento_a_nombre(df_rips, df_facturadores)
-
-        # Filtrar por facturadores DESPUÉS del cruce (comparar por NOMBRE)
-        usuario_col_post = find_column_variant(df_rips, COLUMN_NAMES["usuario"])
-        df_rips = filtrar_por_facturadores(df_rips, df_facturadores, usuario_col_post, 'NOMBRE')
-
+def _build_process_error_result(message):
+    """Standard error payload for RIPS processing."""
     return {
-        "df_rips": df_rips,
-        "error": None
+        "rips_df": None,
+        "error": message,
     }
 
+def _empty_productivity_metrics():
+    """Standard metrics payload when input data is empty."""
+    return {
+        "total": 0,
+        "by_user": None,
+        "by_date": None,
+        "daily_average": 0,
+    }
 
-def filtrar_rips(df, start_date, end_date, usuarios_seleccionados=None):
+def _is_user_filter_active(selected_users):
+    """Return True when a specific user filter is active."""
+    return (
+            selected_users
+            and "All" not in selected_users
+            and "Todos" not in selected_users
+            and len(selected_users) > 0
+    )
+
+def process_rips(df, billers_df=None):
     """
-    Filtra RIPS por fecha y usuarios.
+    Validate and process RIPS dataframe.
+    """
+    is_valid, message = validate_rips_dataframe(df)
+    if not is_valid:
+        return _build_process_error_result(f"{ERROR_VALIDATION_FAILED}: {message}")
+
+    rips_df = process_rips_data(df)
+
+    if billers_df is not None and rips_df is not None:
+        user_col = find_first_column_variant(rips_df, COLUMN_NAMES["usuario"])
+        if user_col:
+            rips_df = merge_with_billers(rips_df, billers_df, user_col)
+
+        # Convert biller document -> biller name.
+        rips_df = map_document_to_name(rips_df, billers_df)
+
+        # Filter after mapping (name-based comparison).
+        user_col_post = find_first_column_variant(rips_df, COLUMN_NAMES["usuario"])
+        rips_df = filter_by_billers(rips_df, billers_df, user_col_post, "NOMBRE")
+
+    return {
+        "rips_df": rips_df,
+        "error": None,
+    }
+
+def filter_rips(df, start_date, end_date, selected_users=None):
+    """
+    Filter RIPS by date and users.
     """
     if df is None or df.empty:
         return df
 
-    fecha_col = find_column_variant(df, COLUMN_NAMES["fecha"])
-    if fecha_col is None:
+    date_col = find_first_column_variant(df, COLUMN_NAMES["fecha"])
+    if date_col is None:
         return df
 
-    df_filtered = filter_by_date_range(df, fecha_col, start_date, end_date)
+    filtered_df = filter_by_date_range(df, date_col, start_date, end_date)
 
-    es_filtro_activo = usuarios_seleccionados and 'Todos' not in usuarios_seleccionados and len(usuarios_seleccionados) > 0
-    if es_filtro_activo:
-        usuario_col = find_column_variant(df_filtered, COLUMN_NAMES["usuario"])
-        if usuario_col and usuario_col in df_filtered.columns:
-            df_filtered = df_filtered[df_filtered[usuario_col].isin(usuarios_seleccionados)]
+    if _is_user_filter_active(selected_users):
+        user_col = find_first_column_variant(filtered_df, COLUMN_NAMES["usuario"])
+        if user_col and user_col in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df[user_col].isin(selected_users)]
 
-    return df_filtered
+    return filtered_df
 
 
-def cruzar_documento_a_nombre(df_rips, df_facturadores):
+def map_document_to_name(rips_df, billers_df):
     """
-    Reemplaza el DOCUMENTO del facturador por su NOMBRE en RIPS.
+    Replace biller DOCUMENT value with NOMBRE in RIPS user column.
     """
-    if df_rips is None or df_rips.empty:
-        return df_rips
+    if rips_df is None or rips_df.empty:
+        return rips_df
 
-    if df_facturadores is None or df_facturadores.empty:
-        return df_rips
+    if billers_df is None or billers_df.empty:
+        return rips_df
 
-    usuario_col = find_column_variant(df_rips, COLUMN_NAMES["usuario"])
+    user_col = find_first_column_variant(rips_df, COLUMN_NAMES["usuario"])
+    if user_col is None:
+        return rips_df
 
-    if usuario_col is None:
-        return df_rips
+    if "DOCUMENTO" not in billers_df.columns or "NOMBRE" not in billers_df.columns:
+        return rips_df
 
-    if 'DOCUMENTO' not in df_facturadores.columns or 'NOMBRE' not in df_facturadores.columns:
-        return df_rips
+    result_df = rips_df.copy()
+    normalized_billers_df = billers_df.copy()
 
-    df_rips = df_rips.copy()
-
-    df_facturadores_norm = df_facturadores.copy()
-    df_facturadores_norm['DOCUMENTO'] = (
-        df_facturadores_norm['DOCUMENTO']
+    normalized_billers_df["DOCUMENTO"] = (
+        normalized_billers_df["DOCUMENTO"]
         .astype(str)
         .str.strip()
         .str.upper()
     )
-    df_facturadores_norm['NOMBRE'] = (
-        df_facturadores_norm['NOMBRE']
+    normalized_billers_df["NOMBRE"] = (
+        normalized_billers_df["NOMBRE"]
         .astype(str)
         .str.strip()
         .str.upper()
     )
 
-    mapa_nombre = (
-        df_facturadores_norm
-        .dropna(subset=['DOCUMENTO', 'NOMBRE'])
-        .drop_duplicates(subset=['DOCUMENTO'])
-        .set_index('DOCUMENTO')['NOMBRE']
+    document_to_name_map = (
+        normalized_billers_df
+        .dropna(subset=["DOCUMENTO", "NOMBRE"])
+        .drop_duplicates(subset=["DOCUMENTO"])
+        .set_index("DOCUMENTO")["NOMBRE"]
     )
 
-    df_rips[usuario_col] = (
-        df_rips[usuario_col]
+    result_df[user_col] = (
+        result_df[user_col]
         .astype(str)
         .str.strip()
-        .str.upper())
+        .str.upper()
+    )
 
-    df_rips[usuario_col] = df_rips[usuario_col].map(mapa_nombre).fillna(df_rips[usuario_col])
+    result_df[user_col] = result_df[user_col].map(document_to_name_map).fillna(result_df[user_col])
 
-    return df_rips
+    return result_df
 
 
-def calcular_productividad_rips(df):
+def calculate_rips_productivity(df):
     """
-    Calcula métricas de productividad de RIPS.
+    Calculate RIPS productivity metrics.
     """
     if df is None or df.empty:
-        return {
-            "total": 0,
-            "por_usuario": None,
-            "por_fecha": None,
-            "promedio_diario": 0
-        }
+        return _empty_productivity_metrics()
 
-    usuario_col = find_column_variant(df, COLUMN_NAMES["usuario"])
-    fecha_col = find_column_variant(df, COLUMN_NAMES["fecha"])
+    user_col = find_first_column_variant(df, COLUMN_NAMES["usuario"])
+    date_col = find_first_column_variant(df, COLUMN_NAMES["fecha"])
 
     total = len(df)
 
-    por_usuario = None
-    if usuario_col:
-        por_usuario = aggregate_by_user(df, usuario_col, fecha_col, group_by_date=False)
+    by_user = None
+    if user_col:
+        by_user = aggregate_records_by_user(df, user_col, date_col, group_by_date=False)
 
-    por_fecha = None
-    if fecha_col:
-        df_temp = df.copy()
-        df_temp['FECHA'] = pd.to_datetime(df_temp[fecha_col]).dt.date
-        por_fecha = df_temp.groupby('FECHA').size().reset_index(name='CANTIDAD')
+    by_date = None
+    if date_col:
+        temp_df = df.copy()
+        temp_df["DATE"] = pd.to_datetime(temp_df[date_col]).dt.date
+        by_date = temp_df.groupby("DATE").size().reset_index(name="COUNT")
 
-    promedio_diario = 0
-    if por_fecha is not None and not por_fecha.empty:
-        promedio_diario = por_fecha['CANTIDAD'].mean()
+    daily_average = 0
+    if by_date is not None and not by_date.empty:
+        daily_average = by_date["COUNT"].mean()
 
     return {
         "total": total,
-        "por_usuario": por_usuario,
-        "por_fecha": por_fecha,
-        "promedio_diario": promedio_diario
+        "by_user": by_user,
+        "by_date": by_date,
+        "daily_average": daily_average,
     }
