@@ -56,3 +56,15 @@ def create_download_button(df, filename, label="📥 Descargar datos"):
         file_name=filename,
         mime='text/csv'
     )
+
+def create_excel_download_button(file_bytes, filename, label="📥 Descargar informe Excel"):
+    """Create download button for Excel files."""
+    if not file_bytes:
+        return
+
+    st.download_button(
+        label=label,
+        data=file_bytes,
+        file_name=filename,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
