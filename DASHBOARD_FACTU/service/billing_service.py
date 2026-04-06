@@ -59,6 +59,36 @@ def _is_user_filter_active(selected_users):
             and len(selected_users) > 0
     )
 
+def _normalize_text_key(value) -> str | None:
+    """Normalize text values for matching by name."""
+    if pd.isna(value):
+        return None
+
+    text = str(value).strip().upper()
+    if text in {"", "NAN", "NONE"}:
+        return None
+
+    return text
+
+
+def _normalize_document_key(value) -> str | None:
+    """Normalize document values for stable matching."""
+    if pd.isna(value):
+        return None
+
+    text = str(value).strip().upper()
+    if text in {"", "NAN", "NONE"}:
+        return None
+
+    # Frequent Excel artifact: numeric IDs loaded as '<id>.0'
+    if text.endswith(".0"):
+        text = text[:-2]
+
+    # Keep only alphanumeric chars (remove spaces, dashes, dots, etc.)
+    text = "".join(ch for ch in text if ch.isalnum())
+    return text or None
+
+
 
 def process_billing(df, billers_df=None):
     """Validate and process billing dataframe."""
@@ -118,15 +148,60 @@ def get_billing_with_user(billing_df, electronic_billing_df, billers_df=None):
         return _build_error_result(ERROR_NO_MATCHES_FOUND)
 
     if billers_df is not None and not billers_df.empty:
-        valid_user_rows_df = filter_by_billers(
-            valid_user_rows_df,
-            billers_df,
-            user_col,
-            "NOMBRE",
-        )
+        has_doc = "DOCUMENTO" in billers_df.columns
+        has_name = "NOMBRE" in billers_df.columns
+
+        # Compare real overlap against master by both strategies
+        users_name = {
+            x for x in valid_user_rows_df[user_col].map(_normalize_text_key).dropna().unique().tolist()
+        }
+        users_doc = {
+            x for x in valid_user_rows_df[user_col].map(_normalize_document_key).dropna().unique().tolist()
+        }
+
+        billers_names = set()
+        billers_docs = set()
+
+        if has_name:
+            billers_names = {
+                x for x in billers_df["NOMBRE"].map(_normalize_text_key).dropna().unique().tolist()
+            }
+
+        if has_doc:
+            billers_docs = {
+                x for x in billers_df["DOCUMENTO"].map(_normalize_document_key).dropna().unique().tolist()
+            }
+
+        name_hits = len(users_name & billers_names)
+        doc_hits = len(users_doc & billers_docs)
+
+        # Choose the mode with better real match
+        comparison_mode = "DOCUMENTO" if (has_doc and doc_hits > name_hits) else "NOMBRE"
+
+        if comparison_mode == "DOCUMENTO" and has_doc:
+            users_tmp = valid_user_rows_df.copy()
+            billers_tmp = billers_df.copy()
+
+            users_tmp[user_col] = users_tmp[user_col].map(_normalize_document_key)
+            billers_tmp["DOCUMENTO"] = billers_tmp["DOCUMENTO"].map(_normalize_document_key)
+
+            valid_user_rows_df = filter_by_billers(
+                users_tmp,
+                billers_tmp,
+                user_col,
+                "DOCUMENTO",
+            )
+        elif has_name:
+            valid_user_rows_df = filter_by_billers(
+                valid_user_rows_df,
+                billers_df,
+                user_col,
+                "NOMBRE",
+            )
 
     if valid_user_rows_df.empty:
         return _build_error_result(ERROR_NO_VALID_AREA_USERS)
+
     billing_by_user_df = (
         valid_user_rows_df
         .groupby(user_col)
