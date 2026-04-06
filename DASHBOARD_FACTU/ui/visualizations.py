@@ -50,7 +50,7 @@ def plot_bar_chart(df, x_col, y_col, title, color=None, sortable=True, sort_key=
         xaxis_type='category'
     )
 
-    st.plotly_chart(fig, use_container_width = "stretch")
+    st.plotly_chart(fig, width = "stretch")
 
 
 def plot_line_chart(df, x_col, y_col, title, color=None, sortable=True, sort_key=None):
@@ -91,7 +91,7 @@ def plot_line_chart(df, x_col, y_col, title, color=None, sortable=True, sort_key
 
     fig.update_layout(xaxis_tickangle=-45)
 
-    st.plotly_chart(fig, use_container_width = "stretch")
+    st.plotly_chart(fig, width = "stretch")
 
 
 def plot_metrics_summary(metrics):
