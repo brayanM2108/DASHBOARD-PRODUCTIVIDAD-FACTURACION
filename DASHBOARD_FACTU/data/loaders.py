@@ -39,6 +39,17 @@ def _normalize_columns_upper(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def _normalize_billers_document_column(df: pd.DataFrame) -> pd.DataFrame:
+    """Normalize DOCUMENTO values to plain digit strings for reliable matching."""
+    if "DOCUMENTO" not in df.columns:
+        return df
+
+    doc_series = df["DOCUMENTO"].astype(str).str.strip()
+    doc_series = doc_series.str.replace(r"\.0$", "", regex=True)
+    df["DOCUMENTO"] = doc_series
+    return df
+
+
 def _build_google_sheets_export_url(file_or_url: Any) -> Any:
     """
     Convert a Google Sheets edit URL into an Excel export URL.
@@ -96,12 +107,14 @@ def _load_billers_from_secrets(secrets_source: Mapping[str, Any] | None = None) 
         if "billers" in secrets and "data" in secrets["billers"]:
             csv_data = secrets["billers"]["data"]
             df = pd.read_csv(io.StringIO(csv_data))
-            return _normalize_columns_upper(df)
+            df = _normalize_columns_upper(df)
+            return _normalize_billers_document_column(df)
 
         if "facturadores" in secrets and "data" in secrets["facturadores"]:
             csv_data = secrets["facturadores"]["data"]
             df = pd.read_csv(io.StringIO(csv_data))
-            return _normalize_columns_upper(df)
+            df = _normalize_columns_upper(df)
+            return _normalize_billers_document_column(df)
 
     except Exception:
         return None
@@ -113,7 +126,8 @@ def _load_billers_from_file() -> pd.DataFrame | None:
     """Load billers master dataset from local Excel file."""
     try:
         df = pd.read_excel(FACTURADORES_FILE, sheet_name=FACTURADORES_SHEET)
-        return _normalize_columns_upper(df)
+        df = _normalize_columns_upper(df)
+        return _normalize_billers_document_column(df)
     except Exception:
         return None
 
@@ -208,4 +222,3 @@ def persist_administrative_processes(df: pd.DataFrame) -> dict[str, bool]:
     Persist processed administrative processes dataframe using canonical key.
     """
     return save_all_persisted_frames({"administrative_processes": df})
-
