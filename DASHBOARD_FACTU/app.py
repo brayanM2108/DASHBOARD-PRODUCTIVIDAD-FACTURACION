@@ -19,7 +19,7 @@ from service.rips_service import map_document_to_name
 from ui.tabs.tab_billing_electronic import render_billing_electronic_section
 
 def init_session_state():
-    """Inicializa el estado de sesión con datos persistidos."""
+
     if 'initialized' not in st.session_state:
         data = load_all_persisted_frames()
 
@@ -27,7 +27,6 @@ def init_session_state():
         st.session_state["ppl_legalizations_df"] = data.get("ppl_legalizations")
         st.session_state["agreement_legalizations_df"] = data.get("agreement_legalizations")
         st.session_state["rips_df"] = data.get("rips")
-        st.session_state["billing_df"] = data.get("billing")
         st.session_state["billers_df"] = data.get("billers")
         st.session_state["electronic_billing_df"] = data.get("electronic_billing")
         st.session_state["administrative_processes_df"] = data.get("administrative_processes")
@@ -45,7 +44,7 @@ def init_session_state():
 
 
 def main():
-    """Función principal de la aplicación."""
+
     st.set_page_config(**PAGE_CONFIG)
 
     init_session_state()
@@ -82,10 +81,9 @@ def main():
 
 
 def render_home():
-    """Renderiza la pestaña de inicio con resumen general."""
+
     st.header("🏠 Resumen General")
 
-    # Mostrar estado de los datos cargados
     st.subheader("📁 Estado de Datos")
 
     col1, col2, col3, col4 = st.columns(4)
@@ -108,10 +106,6 @@ def render_home():
         st.metric("Facturadores", count_fact)
 
     with col3:
-        df_facturacion = st.session_state.get('billing_df')
-        count_facturacion = len(df_facturacion) if df_facturacion is not None else 0
-        st.metric("Facturación", count_facturacion)
-
         df_fact_elec = st.session_state.get('electronic_billing_df')
         count_fact_elec = len(df_fact_elec) if df_fact_elec is not None else 0
         st.metric("Facturación Electrónica", count_fact_elec)

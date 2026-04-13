@@ -14,7 +14,6 @@ from data.loaders import (
 )
 from data.processors import process_electronic_billing_data
 from data.validators import find_first_column_variant
-from service.billing_service import process_billing
 from service.legalizations_service import process_legalizations
 from service.rips_service import map_document_to_name, process_rips
 from ui.components import show_error_message, show_success_message, show_warning_message
@@ -30,9 +29,6 @@ def render_file_upload_section():
 
     with st.expander("📄 Cargar RIPS", expanded=False):
         render_rips_upload()
-
-    with st.expander("💰 Cargar Facturación", expanded=False):
-        render_facturacion_upload()
 
     with st.expander("🧾 Cargar Facturación Electrónica", expanded=False):
         render_facturacion_electronica_upload()
@@ -118,7 +114,6 @@ def clear_all_data():
         if key in st.session_state:
             st.session_state[key] = None
 
-    # Eliminar todos los archivos parquet (excepto facturadores)
     files_to_delete = ["PPL", "Convenios", "RIPS", "Facturacion", "FacturacionElectronica", "ArchivoProcesos"]
     for file_key in files_to_delete:
         if file_key in FILES and os.path.exists(FILES[file_key]):
@@ -243,7 +238,6 @@ def render_rips_upload():
                     show_warning_message("No se encontraron registros después del procesamiento. Verifica que el archivo tenga registros con estado 'COMPLETO'.")
                     return
 
-                # Mostrar muestra de la columna USUARIO FACTURÓ para verificar el cruce
                 if 'USUARIO FACTURÓ' in df_rips.columns:
                     st.info(f"📊 Muestra de usuarios: {df_rips['USUARIO FACTURÓ'].unique()[:5].tolist()}")
 
@@ -257,52 +251,6 @@ def render_rips_upload():
                 show_error_message(f"Error inesperado: {e}")
                 import traceback
                 st.code(traceback.format_exc())
-
-
-def render_facturacion_upload():
-    """Render the billing uploader."""
-    uploaded_file = st.file_uploader(
-        "Selecciona archivo de facturación",
-        type=['csv', 'xlsx'],
-        key="upload_facturacion"
-    )
-
-    if uploaded_file and st.button("Procesar Facturación", key="btn_process_fact"):
-        with st.spinner("Procesando facturación..."):
-            try:
-                df = load_uploaded_dataframe(uploaded_file, COLUMN_MARKERS["facturacion"])
-
-                if df is None:
-                    show_error_message("Error al cargar el archivo. No se encontró la columna marcadora 'NRO_LEGALIACION'.")
-                    return
-
-                st.info(f"📋 Archivo cargado: {len(df):,} filas, {len(df.columns)} columnas")
-
-                df_facturadores = st.session_state.get('billers_df')
-                result = process_billing(df, df_facturadores)
-
-                if result.get("error"):
-                    show_error_message(result["error"])
-                    return
-
-                df_facturacion = result.get("billing_df")
-                count_fact = len(df_facturacion) if df_facturacion is not None and not df_facturacion.empty else 0
-
-                if count_fact == 0:
-                    show_warning_message("No se encontraron registros después del procesamiento.")
-                    return
-
-                st.session_state['billing_df'] = df_facturacion
-                save_all_persisted_frames({"billing": df_facturacion})
-
-                show_success_message(f"Facturación procesada: {count_fact:,} registros.")
-                st.rerun()
-
-            except Exception as e:
-                show_error_message(f"Error inesperado: {e}")
-                import traceback
-                st.code(traceback.format_exc())
-
 
 def render_facturacion_electronica_upload():
     """Render the electronic invoicing uploader."""

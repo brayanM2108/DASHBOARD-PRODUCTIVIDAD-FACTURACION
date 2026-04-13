@@ -14,11 +14,10 @@ def _show_data_status():
     datos_estado = [
         ('PPL', 'ppl_legalizations_df'),
         ('Convenios', 'agreement_legalizations_df'),
-        ('RIPS', 'rips_df'),
-        ('Facturación', 'billing_df'),
-        ('Facturadores', 'billers_df'),
         ('Fact. Electrónica', 'electronic_billing_df'),
-        ('Procesos', 'administrative_processes_df')
+        ('RIPS', 'rips_df'),
+        ('Procesos', 'administrative_processes_df'),
+        ('Facturadores', 'billers_df')
     ]
 
     for nombre, key in datos_estado:
@@ -100,10 +99,9 @@ def _reload_data():
     data = load_all_persisted_frames()
     st.session_state["ppl_legalizations_df"] = data.get("ppl_legalizations")
     st.session_state["agreement_legalizations_df"] = data.get("agreement_legalizations")
+    st.session_state["electronic_billing_df"] = data.get("electronic_billing"),
     st.session_state["rips_df"] = data.get("rips")
-    st.session_state["billing_df"] = data.get("billing")
     st.session_state["billers_df"] = data.get("billers")
-    st.session_state["electronic_billing_df"] = data.get("electronic_billing")
     st.session_state["administrative_processes_df"] = data.get("administrative_processes")
     st.session_state['ultima_actualizacion'] = pd.Timestamp.now().strftime("%d/%m/%Y %H:%M")
     st.rerun()
@@ -115,7 +113,6 @@ def _clear_data():
         'ppl_legalizations_df',
         'agreement_legalizations_df',
         'rips_df',
-        'billing_df',
         'billers_df',
         'electronic_billing_df',
         'administrative_processes_df',
