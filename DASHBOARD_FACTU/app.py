@@ -14,9 +14,9 @@ from ui.file_upload import render_file_upload_section
 from ui.sidebar import render_state_data
 from ui.tabs.tab_legalizations import render_tab_legalizations
 from ui.tabs.tab_rips import render_tab_rips
-from ui.tabs.tab_billing import render_tab_billing
 from ui.tabs.tab_manual_billing import render_tab_manual_billing
 from service.rips_service import map_document_to_name
+from ui.tabs.tab_billing_electronic import render_billing_electronic_section
 
 def init_session_state():
     """Inicializa el estado de sesión con datos persistidos."""
@@ -53,7 +53,7 @@ def main():
     st.title("📊 Dashboard de Productividad")
     render_state_data()
 
-    tab_home, tab_legalizations, tab_rips, tab_billing, tab_manual_billing, tab_load = st.tabs([
+    tab_home, tab_legalizations, tab_rips, tab_electronic_billing, tab_manual_billing, tab_load = st.tabs([
         "🏠 Inicio",
         "📋 Legalizaciones",
         "📄 RIPS",
@@ -71,8 +71,8 @@ def main():
     with tab_rips:
         render_tab_rips()
 
-    with tab_billing:
-        render_tab_billing()
+    with tab_electronic_billing:
+        render_billing_electronic_section()
 
     with tab_manual_billing:
         render_tab_manual_billing()

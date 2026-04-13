@@ -64,6 +64,13 @@ COLUMN_NAMES = {
     "convenio": "CONVENIO"
 }
 
+COLUMN_NAMES_BILLING = {
+    "usuario": ["USUARIO"],
+    "fecha": ["FECHA FACTURA"],
+    "estado": ["Estado"],
+    "convenio": "CONVENIO"
+}
+
 COLUMN_NAMES_LEGALIZATIONS = {
     "usuario": ["USUARIO", "USUARIO FACTURÓ", "USUARIO FACTURO", "USUARIO FACTUR", "USUARIO_FACTURO"],
     "fecha": ["FECHA_REAL"],
