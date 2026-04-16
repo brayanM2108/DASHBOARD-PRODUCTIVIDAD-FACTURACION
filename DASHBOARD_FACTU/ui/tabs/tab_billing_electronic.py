@@ -6,8 +6,8 @@ Uses only electronic billing data (USUARIO + VALOR TERCERO).
 """
 
 import pandas as pd
-import plotly.graph_objects as go
 import streamlit as st
+from utils.excel_exporter import export_billing_report
 
 from config.settings import COLUMN_NAMES_BILLING
 from data.validators import find_first_column_variant
@@ -23,8 +23,11 @@ from ui.components import (
     show_dataframe,
     show_info_message,
 )
-from ui.visualizations import plot_bar_chart
-from utils.excel_exporter import export_billing_report
+from ui.visualizations import (
+    plot_billing_electronic_value_by_user,
+    plot_billing_electronic_records_by_user,
+    plot_billing_electronic_records_by_date,
+)
 
 ALL_OPTION = "Todos"
 KEY_PREFIX = "billing_v2"
@@ -59,45 +62,6 @@ def _safe_max_date(df: pd.DataFrame, date_col: str | None) -> pd.Timestamp:
             return max_value
     return pd.Timestamp.now()
 
-
-def _plot_dual_trend(by_date_dual: pd.DataFrame | None) -> None:
-    """Bar + line chart: registros vs valor tercero by date."""
-    if by_date_dual is None or by_date_dual.empty:
-        show_info_message("No hay tendencia por fecha para los filtros actuales.")
-        return
-
-    fig = go.Figure()
-
-    fig.add_bar(
-        x=by_date_dual["DATE"],
-        y=by_date_dual["REGISTROS"],
-        name="Registros",
-        yaxis="y1",
-    )
-
-    fig.add_scatter(
-        x=by_date_dual["DATE"],
-        y=by_date_dual["VALOR_TERCERO"],
-        name="Valor Tercero",
-        mode="lines+markers",
-        yaxis="y2",
-    )
-
-    fig.update_layout(
-        title="Tendencia diaria: Registros vs Valor Tercero",
-        xaxis=dict(title="Fecha"),
-        yaxis=dict(title="Registros"),
-        yaxis2=dict(
-            title="Valor Tercero",
-            overlaying="y",
-            side="right",
-        ),
-        legend=dict(orientation="h"),
-    )
-
-    st.plotly_chart(fig, width="stretch")
-
-
 def render_tab_billing_electronic():
     """Render the billing V2 tab."""
     st.header("Facturación V2")
@@ -111,7 +75,8 @@ def render_billing_electronic_section():
     if e_billing_df is None or e_billing_df.empty:
         show_info_message("No hay datos de facturación electrónica. Carga un archivo en la sección de carga.")
         return
-
+    st.subheader("💰Productividad Facturación")
+    
     e_billing_df = _normalize_columns_upper(e_billing_df)
 
     user_col = _find_user_column(e_billing_df)
@@ -150,13 +115,13 @@ def render_billing_electronic_section():
         usuarios_lista,
         key=f"{KEY_PREFIX}_usuario",
     )
-    usuarios_seleccionados = None if usuario_sel == ALL_OPTION else [usuario_sel]
+    selected_users = None if usuario_sel == ALL_OPTION else [usuario_sel]
 
     filtered_e_billing_df = filter_billing(
         e_billing_df,
         start_date,
         end_date,
-        selected_users=usuarios_seleccionados,
+        selected_users=selected_users,
     )
 
     if filtered_e_billing_df is None or filtered_e_billing_df.empty:
@@ -177,19 +142,19 @@ def render_billing_electronic_section():
     report_by_user_df = result["billing_by_user_df"]
     result_user_col = result["user_column"]
 
-    if usuarios_seleccionados and result_user_col in productivity_base_df.columns:
+    if selected_users and result_user_col in productivity_base_df.columns:
         productivity_base_df = productivity_base_df[
-            productivity_base_df[result_user_col].isin(usuarios_seleccionados)
+            productivity_base_df[result_user_col].isin(selected_users)
         ]
 
     if (
             report_by_user_df is not None
             and not report_by_user_df.empty
-            and usuarios_seleccionados
+            and selected_users
             and result_user_col in report_by_user_df.columns
     ):
         report_by_user_df = report_by_user_df[
-            report_by_user_df[result_user_col].isin(usuarios_seleccionados)
+            report_by_user_df[result_user_col].isin(selected_users)
         ]
 
     period_label = f"{start_date} - {end_date}"
@@ -200,9 +165,12 @@ def render_billing_electronic_section():
     )
     billing_excel = export_billing_report(billing_report, period_label=period_label)
 
+    filename_suffix = f"_{usuario_sel}" if selected_users else ""
+    filename = f"INFORME_PRODUCTIVIDAD_FACTURACION_{filename_suffix}.xlsx"
+    
     create_excel_download_button(
         billing_excel,
-        filename=f"billing_v2_productivity_{start_date}_{end_date}.xlsx",
+        filename=filename,
         label="📥 Descargar informe de productividad (Excel)",
     )
 
@@ -219,57 +187,36 @@ def render_billing_electronic_section():
 
     total_registros = len(productivity_base_df)
 
-    st.subheader("📌 Indicadores principales")
+
     c1, c2 = st.columns(2)
     with c1:
         st.metric("Total de Registros", f"{total_registros:,}")
     with c2:
-        st.metric("Total Valor Tercero", f"${total_valor:,.2f}")
+        st.metric("Total Valor Tercero", f"${total_valor:,.0f}")
 
-    # ---- Gráfica 1: valor facturado por usuario ----
     st.subheader("📈 Valor Facturado por Usuario")
     if report_by_user_df is None or report_by_user_df.empty:
         show_info_message("No hay datos para graficar por usuario.")
     else:
         df_valor = report_by_user_df.copy()
-        plot_bar_chart(
-            df_valor,
-            x_col=result_user_col,
-            y_col="COUNT",
-            title="Valor Facturado por Usuario",
-            sort_key="billing_v2_user_bar",
-        )
+        plot_billing_electronic_value_by_user(df_valor, result_user_col)
 
-        # Tabla con formato moneda
         df_valor_show = df_valor.copy()
         df_valor_show["COUNT"] = pd.to_numeric(df_valor_show["COUNT"], errors="coerce").fillna(0)
-        st.dataframe(
-            df_valor_show.style.format({"COUNT": "${:,.2f}"}),
-            width="stretch",
-        )
+        st.dataframe(df_valor_show.style.format({"COUNT": "${:,.0f}"}), width="stretch")
 
-    # ---- Gráfica 2: cantidad de registros por usuario (debajo) ----
     st.subheader("📊 Cantidad de Registros por Usuario")
-    if productivity_base_df is None or productivity_base_df.empty:
-        show_info_message("No hay datos para graficar registros por usuario.")
-    else:
-        df_registros = (
-            productivity_base_df
-            .groupby(result_user_col, as_index=False)
-            .size()
-            .rename(columns={"size": "REGISTROS"})
-            .sort_values("REGISTROS", ascending=False)
-        )
-
-        plot_bar_chart(
-            df_registros,
-            x_col=result_user_col,
-            y_col="REGISTROS",
-            title="Cantidad de Registros por Usuario",
-            sort_key="billing_v2_records_bar",
-        )
-
+    df_registros = plot_billing_electronic_records_by_user(productivity_base_df, result_user_col)
+    if df_registros is not None and not df_registros.empty:
         st.dataframe(df_registros, width="stretch")
+
+
+
+    st.subheader("📅 Valor Facturado por Fecha")
+    df_fecha_registros = plot_billing_electronic_records_by_date(metrics.get("by_date_dual"))
+    if df_fecha_registros is not None and not df_fecha_registros.empty:
+        st.dataframe(df_fecha_registros.style.format({"VALOR_TERCERO": "${:,.0f}"}), width="stretch")
+
 
     with st.expander("📊 Ver datos detallados", expanded=False):
         show_dataframe(filtered_e_billing_df, title="Datos de Facturacion Electronica Filtrados")
