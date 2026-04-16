@@ -22,6 +22,7 @@ from service.manual_billing_service import (
 from service.report_service import build_processes_report
 from utils.excel_exporter import export_processes_report
 from ui.components import (
+    create_download_button,
     create_excel_download_button,
     show_error_message,
     show_success_message,
@@ -208,7 +209,6 @@ def render_tab_manual_billing():
                 st.rerun()
         with c2:
             if st.button("Descargar informe (vacío)", key="btn_download_empty"):
-                # construir y descargar reporte vacío/plantilla
                 processes_report = build_processes_report(
                     df_current=pd.DataFrame(),
                     df_previous=None,
@@ -219,8 +219,10 @@ def render_tab_manual_billing():
                 safe_end = _safe_date_str(end_date)
                 period_label = f"{safe_start} - {safe_end}" if (safe_start or safe_end) else "Período no especificado"
                 processes_excel = export_processes_report(processes_report, period_label=period_label)
-                safe_filename = _sanitize_filename(f"administrative_processes_productivity_{safe_start}_{safe_end}.xlsx")
-                create_excel_download_button(processes_excel, filename=safe_filename, label="📥 Descargar informe (vacío)")
+                filename_suffix = f"_{selected_person}" if selected_person else ""
+                filename = f"INFORME_PRODUCTIVIDAD_PROCESOSMANUALES_{filename_suffix}.xlsx"
+
+                create_excel_download_button(processes_excel, filename=filename, label="📥 Descargar informe (vacío)")
         return
 
     # KPIs from service
@@ -314,6 +316,13 @@ def render_tab_manual_billing():
     safe_end = _safe_date_str(end_date)
     period_label = f"{safe_start} - {safe_end}" if (safe_start or safe_end) else "Período no especificado"
 
+    csv_filename = _sanitize_filename(f"administrative_processes_{safe_start}_{safe_end}.csv")
+    create_download_button(
+        filtered_df,
+        filename=csv_filename,
+        label="📥 Descargar datos filtrados (CSV)",
+    )
+
     try:
         processes_report = build_processes_report(
             df_current=filtered_df,
@@ -322,10 +331,11 @@ def render_tab_manual_billing():
             selected_process=selected_process if selected_process != ALL_OPTION else None,
         )
         processes_excel = export_processes_report(processes_report, period_label=period_label)
-        safe_filename = _sanitize_filename(f"administrative_processes_productivity_{safe_start}_{safe_end}.xlsx")
+        filename_suffix = f"_{selected_person}" if selected_person else ""
+        filename = f"INFORME_PRODUCTIVIDAD_PROCESOSMANUALES_{filename_suffix}.xlsx"
         create_excel_download_button(
             processes_excel,
-            filename=safe_filename,
+            filename=filename,
             label="📥 Descargar informe de productividad (Excel)",
         )
     except Exception as exc:

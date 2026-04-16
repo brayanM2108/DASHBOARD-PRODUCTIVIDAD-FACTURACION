@@ -92,11 +92,13 @@ def render_tab_rips():
         df_previous=None,
     )
     rips_excel = export_rips_report(rips_report, period_label=period_label)
+    filename_suffix = f"_{selected_user}" if selected_user else ""
 
     create_excel_download_button(
     rips_excel,
-        filename=f"rips_productivity_{start_date}_{end_date}.xlsx",
-        label="📥 Descargar informe de productividad (Excel)",
+
+        filename = f"INFORME_PRODUCTIVIDAD_RIPS_{filename_suffix}.xlsx",
+        label="📥 Descargar informe de productividad (Excel)"
     )
 
     metrics = calculate_rips_productivity(filtered_df)
