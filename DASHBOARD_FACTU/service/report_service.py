@@ -6,11 +6,12 @@ Consumed by excel_exporter.py to generate downloadable Excel files.
 """
 
 import pandas as pd
+import streamlit as st
 
 from service.billing_electronic_service import calculate_billing_productivity
-from service.legalizations_service import calculate_legalizations_productivity
+from service.legalizations_service import calculate_legalizations_productivity_cached
 from service.manual_billing_service import build_chart_datasets, build_processes_kpis, get_summary_by_person, get_summary_by_process
-from service.rips_service import calculate_rips_productivity
+from service.rips_service import calculate_rips_productivity_cached
 
 
 # ---------------------------------------------------------------------------
@@ -106,6 +107,16 @@ def build_billing_report(
     }
 
 
+@st.cache_data(show_spinner=False, ttl=300)
+def build_billing_report_cached(
+        df_current: pd.DataFrame,
+        df_previous: pd.DataFrame | None = None,
+        by_user_df: pd.DataFrame | None = None,
+) -> dict:
+    """Cached wrapper for billing report generation."""
+    return build_billing_report(df_current=df_current, df_previous=df_previous, by_user_df=by_user_df)
+
+
 # ---------------------------------------------------------------------------
 # RIPS report
 # ---------------------------------------------------------------------------
@@ -124,8 +135,8 @@ def build_rips_report(
     Returns:
         dict with keys: executive_summary, by_user, by_date
     """
-    metrics_current = calculate_rips_productivity(df_current)
-    metrics_previous = calculate_rips_productivity(df_previous) if df_previous is not None else None
+    metrics_current = calculate_rips_productivity_cached(df_current)
+    metrics_previous = calculate_rips_productivity_cached(df_previous) if df_previous is not None else None
 
     previous_total = metrics_previous["total"] if metrics_previous else 0
     previous_daily_avg = metrics_previous["daily_average"] if metrics_previous else 0
@@ -145,6 +156,15 @@ def build_rips_report(
         "by_user": metrics_current["by_user"],
         "by_date": metrics_current["by_date"],
     }
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def build_rips_report_cached(
+        df_current: pd.DataFrame,
+        df_previous: pd.DataFrame | None = None,
+) -> dict:
+    """Cached wrapper for RIPS report generation."""
+    return build_rips_report(df_current=df_current, df_previous=df_previous)
 
 
 # ---------------------------------------------------------------------------
@@ -170,15 +190,15 @@ def build_legalizations_report(
         dict with keys: executive_summary, ppl, agreements
         - ppl / agreements each contain: metrics, by_user, by_date, top5_by_user
     """
-    ppl_metrics = calculate_legalizations_productivity(ppl_current, category="PPL")
-    agreements_metrics = calculate_legalizations_productivity(agreements_current, category="Convenios")
+    ppl_metrics = calculate_legalizations_productivity_cached(ppl_current, category="PPL")
+    agreements_metrics = calculate_legalizations_productivity_cached(agreements_current, category="Convenios")
 
     ppl_previous_metrics = (
-        calculate_legalizations_productivity(ppl_previous, category="PPL")
+        calculate_legalizations_productivity_cached(ppl_previous, category="PPL")
         if ppl_previous is not None else None
     )
     agreements_previous_metrics = (
-        calculate_legalizations_productivity(agreements_previous, category="Convenios")
+        calculate_legalizations_productivity_cached(agreements_previous, category="Convenios")
         if agreements_previous is not None else None
     )
 
@@ -221,6 +241,22 @@ def build_legalizations_report(
             "top5_by_user": _top5_by_user(agreements_metrics["by_user"]),
         },
     }
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def build_legalizations_report_cached(
+        ppl_current: pd.DataFrame,
+        agreements_current: pd.DataFrame,
+        ppl_previous: pd.DataFrame | None = None,
+        agreements_previous: pd.DataFrame | None = None,
+) -> dict:
+    """Cached wrapper for legalizations report generation."""
+    return build_legalizations_report(
+        ppl_current=ppl_current,
+        agreements_current=agreements_current,
+        ppl_previous=ppl_previous,
+        agreements_previous=agreements_previous,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -276,3 +312,19 @@ def build_processes_report(
         "by_process": get_summary_by_process(df_current),
         "chart_datasets": chart_datasets,
     }
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def build_processes_report_cached(
+        df_current: pd.DataFrame,
+        df_previous: pd.DataFrame | None = None,
+        selected_person: str | None = None,
+        selected_process: str | None = None,
+) -> dict:
+    """Cached wrapper for administrative processes report generation."""
+    return build_processes_report(
+        df_current=df_current,
+        df_previous=df_previous,
+        selected_person=selected_person,
+        selected_process=selected_process,
+    )
