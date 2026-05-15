@@ -9,7 +9,7 @@ Streamlit Application Entry Point
 
 import streamlit as st
 from config.settings import PAGE_CONFIG
-from data.loaders import load_all_persisted_frames, load_billers_master
+from data.loaders import load_all_persisted_frames_cached, load_billers_master_cached
 from ui.file_upload import render_file_upload_section
 from ui.sidebar import render_state_data
 from ui.tabs.tab_legalizations import render_tab_legalizations
@@ -21,7 +21,7 @@ from ui.tabs.tab_billing_electronic import render_billing_electronic_section
 def init_session_state():
 
     if 'initialized' not in st.session_state:
-        data = load_all_persisted_frames()
+        data = load_all_persisted_frames_cached()
 
 
         st.session_state["ppl_legalizations_df"] = data.get("ppl_legalizations")
@@ -32,7 +32,7 @@ def init_session_state():
         st.session_state["administrative_processes_df"] = data.get("administrative_processes")
 
         if st.session_state["billers_df"] is None:
-            st.session_state["billers_df"] = load_billers_master()
+            st.session_state["billers_df"] = load_billers_master_cached()
 
         if st.session_state["rips_df"] is not None and st.session_state["billers_df"] is not None:
             st.session_state["rips_df"] = map_document_to_name(
