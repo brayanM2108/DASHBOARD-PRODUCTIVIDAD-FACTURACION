@@ -6,6 +6,7 @@ No cross-merge with manual billing and no matching against billers master.
 """
 
 import pandas as pd
+import streamlit as st
 
 from data.validators import find_first_column_variant
 from config.settings import COLUMN_NAMES_BILLING
@@ -35,12 +36,10 @@ def _build_error_result(message):
 def _empty_productivity_metrics():
     """Standard metrics payload when input data is empty."""
     return {
-        # Legacy fields (compatibilidad con report_service / excel_exporter)
         "total": 0,
         "by_user": None,
         "by_date": None,
         "daily_average": 0,
-        # Nuevos campos duales
         "total_records": 0,
         "total_valor_tercero": 0.0,
         "by_user_dual": None,
@@ -58,6 +57,21 @@ def _is_user_filter_active(selected_users):
             and "Todos" not in selected_users
             and len(selected_users) > 0
     )
+
+def _is_agreement_filter_active(selected_agreement):
+    """Return True when a specific agreement filter is actually active."""
+    if selected_agreement is None:
+        return False
+
+    if isinstance(selected_agreement, str):
+        value = selected_agreement.strip()
+        return value != "" and value not in {"All", "Todos"}
+
+    if isinstance(selected_agreement, (list, tuple, set)):
+        cleaned = [str(v).strip() for v in selected_agreement if str(v).strip() != ""]
+        return len(cleaned) > 0 and "All" not in cleaned and "Todos" not in cleaned
+
+    return False
 
 
 def _normalize_user_series(series: pd.Series) -> pd.Series:
@@ -82,6 +96,8 @@ def _parse_amount_series(series: pd.Series) -> pd.Series:
 def _find_user_column(df: pd.DataFrame) -> str | None:
     return find_first_column_variant(df, COLUMN_NAMES_BILLING.get("usuario", []))
 
+def _find_agreement_column(df: pd.DataFrame) -> str | None:
+    return find_first_column_variant(df, COLUMN_NAMES_BILLING.get("convenio", []))
 
 def _find_date_column(df: pd.DataFrame) -> str | None:
     return find_first_column_variant(df, COLUMN_NAMES_BILLING.get("fecha", []))
@@ -114,6 +130,12 @@ def _prepare_electronic_billing_df(df: pd.DataFrame | None) -> pd.DataFrame | No
     return result_df
 
 
+@st.cache_data(show_spinner=False, ttl=300)
+def prepare_electronic_billing_df_cached(df: pd.DataFrame | None) -> pd.DataFrame | None:
+    """Cached wrapper for electronic billing dataframe preparation."""
+    return _prepare_electronic_billing_df(df)
+
+
 def process_billing(df, billers_df=None):
     """
     Process billing dataframe as electronic billing source.
@@ -134,17 +156,18 @@ def process_billing(df, billers_df=None):
     }
 
 
-def filter_billing(df, start_date, end_date, selected_users=None):
+def filter_billing(df, start_date, end_date, selected_users=None, selected_agreement=None):
     """Filter electronic billing dataframe by date range and optional user selection."""
     if df is None or df.empty:
         return df
 
-    prepared_df = _prepare_electronic_billing_df(df)
+    prepared_df = prepare_electronic_billing_df_cached(df)
     if prepared_df is None or prepared_df.empty:
         return prepared_df
 
     user_col = _find_user_column(prepared_df)
     date_col = _find_date_column(prepared_df)
+    agreement_col = _find_agreement_column(prepared_df)
 
     filtered_df = prepared_df
     if date_col is not None:
@@ -154,7 +177,40 @@ def filter_billing(df, start_date, end_date, selected_users=None):
         selected_set = {str(u).strip() for u in selected_users}
         filtered_df = filtered_df[filtered_df[user_col].isin(selected_set)]
 
+    if _is_agreement_filter_active(selected_agreement) and agreement_col and agreement_col in filtered_df.columns:
+        if isinstance(selected_agreement, str):
+            selected_set = {selected_agreement.strip()}
+        else:
+            selected_set = {str(v).strip() for v in selected_agreement}
+        filtered_df = filtered_df[filtered_df[agreement_col].astype(str).str.strip().isin(selected_set)]
+
+
     return filtered_df
+
+
+def filter_agreement(df, agreement_id):
+    """Filter electronic billing dataframe by agreement ID."""
+    if df is None or df.empty:
+        return df
+
+    prepared_df = prepare_electronic_billing_df_cached(df)
+    if prepared_df is None or prepared_df.empty:
+        return prepared_df
+
+    agreement_col = _find_agreement_column(prepared_df)
+    if agreement_col is None:
+        return prepared_df
+
+    if not _is_agreement_filter_active(agreement_id):
+        return prepared_df
+
+    if isinstance(agreement_id, str):
+        selected_set = {agreement_id.strip()}
+    else:
+        selected_set = {str(v).strip() for v in agreement_id}
+
+    return prepared_df[prepared_df[agreement_col].astype(str).str.strip().isin(selected_set)]
+
 
 
 def get_billing_with_user(billing_df, electronic_billing_df, billers_df=None):
@@ -170,7 +226,7 @@ def get_billing_with_user(billing_df, electronic_billing_df, billers_df=None):
     if electronic_billing_df is None or electronic_billing_df.empty:
         return _build_error_result(ERROR_NO_E_BILLING_DATA)
 
-    prepared_df = _prepare_electronic_billing_df(electronic_billing_df)
+    prepared_df = prepare_electronic_billing_df_cached(electronic_billing_df)
     if prepared_df is None or prepared_df.empty:
         return _build_error_result(ERROR_USER_NOT_DETERMINED)
 
@@ -182,7 +238,6 @@ def get_billing_with_user(billing_df, electronic_billing_df, billers_df=None):
     if valid_user_rows_df.empty:
         return _build_error_result(ERROR_NO_MATCHES_FOUND)
 
-    # Mantiene COUNT como suma de valor para compatibilidad con reporte actual.
     billing_by_user_df = (
         valid_user_rows_df
         .groupby(user_col, as_index=False)[VALUE_COLUMN]
@@ -209,7 +264,7 @@ def calculate_billing_productivity(df):
     - total / by_user / by_date / daily_average remain available
       and are based on VALOR TERCERO.
     """
-    prepared_df = _prepare_electronic_billing_df(df)
+    prepared_df = prepare_electronic_billing_df_cached(df)
     if prepared_df is None or prepared_df.empty:
         return _empty_productivity_metrics()
 
@@ -268,12 +323,10 @@ def calculate_billing_productivity(df):
         daily_avg_valor = float(by_date_dual["VALOR_TERCERO"].mean())
 
     return {
-        # Legacy (valor) for current report pipeline.
         "total": total_valor,
         "by_user": by_user_legacy,
         "by_date": by_date_legacy,
         "daily_average": daily_avg_valor,
-        # New dual metrics.
         "total_records": total_records,
         "total_valor_tercero": total_valor,
         "by_user_dual": by_user_dual,
