@@ -11,6 +11,7 @@ from datetime import date
 import pandas as pd
 import plotly.express as px
 import plotly.io as pio
+import streamlit as st
 from PIL import Image as PILImage
 from openpyxl.drawing.image import Image as XLImage
 from openpyxl import Workbook
@@ -371,6 +372,12 @@ def export_billing_report(report: dict, period_label: str = "") -> bytes:
     return _to_bytes(wb)
 
 
+@st.cache_data(show_spinner=False, ttl=300)
+def export_billing_report_cached(report: dict, period_label: str = "") -> bytes:
+    """Cached wrapper for billing Excel export."""
+    return export_billing_report(report, period_label=period_label)
+
+
 def export_rips_report(report: dict, period_label: str = "") -> bytes:
     """
     Generate RIPS Excel report.
@@ -386,6 +393,12 @@ def export_rips_report(report: dict, period_label: str = "") -> bytes:
     _write_standard_sheets(wb, report, "RIPS", period_label)
     _add_standard_charts_sheet(wb, report, "RIPS")
     return _to_bytes(wb)
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def export_rips_report_cached(report: dict, period_label: str = "") -> bytes:
+    """Cached wrapper for RIPS Excel export."""
+    return export_rips_report(report, period_label=period_label)
 
 
 def export_legalizations_report(report: dict, period_label: str = "") -> bytes:
@@ -448,6 +461,12 @@ def export_legalizations_report(report: dict, period_label: str = "") -> bytes:
     return _to_bytes(wb)
 
 
+@st.cache_data(show_spinner=False, ttl=300)
+def export_legalizations_report_cached(report: dict, period_label: str = "") -> bytes:
+    """Cached wrapper for legalizations Excel export."""
+    return export_legalizations_report(report, period_label=period_label)
+
+
 def export_processes_report(report: dict, period_label: str = "") -> bytes:
     """
     Generate administrative processes Excel report.
@@ -498,6 +517,13 @@ def export_processes_report(report: dict, period_label: str = "") -> bytes:
 
     _add_processes_charts_sheet(wb, report)
     return _to_bytes(wb)
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def export_processes_report_cached(report: dict, period_label: str = "") -> bytes:
+    """Cached wrapper for administrative processes Excel export."""
+    return export_processes_report(report, period_label=period_label)
+
 
 # ---------------------------------------------------------------------------
 # Graphic exporters
