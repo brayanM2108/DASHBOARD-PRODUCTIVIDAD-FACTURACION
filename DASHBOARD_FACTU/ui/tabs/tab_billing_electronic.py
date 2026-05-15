@@ -7,7 +7,7 @@ Uses only electronic billing data (USUARIO + VALOR TERCERO).
 
 import pandas as pd
 import streamlit as st
-from utils.excel_exporter import export_billing_report
+from utils.excel_exporter import export_billing_report_cached
 
 from config.settings import COLUMN_NAMES_BILLING
 from data.validators import find_first_column_variant
@@ -15,13 +15,20 @@ from service.billing_electronic_service import (
     calculate_billing_productivity,
     filter_billing,
     get_billing_with_user,
+    prepare_electronic_billing_df_cached,
+
 )
-from service.report_service import build_billing_report
+from service.report_service import build_billing_report_cached
 from ui.components import (
     create_download_button,
     create_excel_download_button,
     show_dataframe,
     show_info_message,
+)
+from ui.filters import (
+    render_agreement_filter,
+    render_date_filter_from_df,
+    render_single_select,
 )
 from ui.visualizations import (
     plot_billing_electronic_value_by_user,
@@ -33,34 +40,15 @@ ALL_OPTION = "Todos"
 KEY_PREFIX = "billing_v2"
 
 
-def _normalize_columns_upper(df: pd.DataFrame) -> pd.DataFrame:
-    copy_df = df.copy()
-    copy_df.columns = copy_df.columns.astype(str).str.strip().str.upper()
-    return copy_df
-
-
 def _find_user_column(df: pd.DataFrame) -> str | None:
     return find_first_column_variant(df, COLUMN_NAMES_BILLING.get("usuario", []))
 
+def _find_agreement_column(df: pd.DataFrame) -> str | None:
+    return find_first_column_variant(df, COLUMN_NAMES_BILLING.get("convenio", []))
 
 def _find_date_column(df: pd.DataFrame) -> str | None:
     return find_first_column_variant(df, COLUMN_NAMES_BILLING.get("fecha", []))
 
-
-def _safe_min_date(df: pd.DataFrame, date_col: str | None) -> pd.Timestamp:
-    if date_col and date_col in df.columns:
-        min_value = pd.to_datetime(df[date_col], errors="coerce").min()
-        if pd.notna(min_value):
-            return min_value
-    return pd.Timestamp.now()
-
-
-def _safe_max_date(df: pd.DataFrame, date_col: str | None) -> pd.Timestamp:
-    if date_col and date_col in df.columns:
-        max_value = pd.to_datetime(df[date_col], errors="coerce").max()
-        if pd.notna(max_value):
-            return max_value
-    return pd.Timestamp.now()
 
 def render_tab_billing_electronic():
     """Render the billing V2 tab."""
@@ -77,26 +65,24 @@ def render_billing_electronic_section():
         return
     st.subheader("💰Productividad Facturación")
     
-    e_billing_df = _normalize_columns_upper(e_billing_df)
+    e_billing_df = prepare_electronic_billing_df_cached(e_billing_df)
+    if e_billing_df is None or e_billing_df.empty:
+        show_info_message("No hay datos de facturación electrónica válidos para procesar.")
+        return
 
     user_col = _find_user_column(e_billing_df)
     date_col = _find_date_column(e_billing_df)
+    agreement_col = _find_agreement_column(e_billing_df)
 
-    col1, col2 = st.columns(2)
-    with col1:
-        start_date = st.date_input(
-            "Fecha Inicio",
-            value=_safe_min_date(e_billing_df, date_col),
-            key=f"{KEY_PREFIX}_start_date",
-        )
-    with col2:
-        end_date = st.date_input(
-            "Fecha Fin",
-            value=_safe_max_date(e_billing_df, date_col),
-            key=f"{KEY_PREFIX}_end_date",
-        )
+    start_date, end_date = render_date_filter_from_df(
+        e_billing_df,
+        date_col,
+        key_prefix=KEY_PREFIX,
+        label_start="Fecha Inicio",
+        label_end="Fecha Fin",
+    )
 
-    usuarios_lista = [ALL_OPTION]
+    users_list = [ALL_OPTION]
     if user_col and user_col in e_billing_df.columns:
         usuarios_unicos = (
             e_billing_df[user_col]
@@ -108,13 +94,36 @@ def render_billing_electronic_section():
             .unique()
             .tolist()
         )
-        usuarios_lista = [ALL_OPTION] + sorted(usuarios_unicos)
+        users_list = [ALL_OPTION] + sorted(usuarios_unicos)
 
-    usuario_sel = st.selectbox(
-        "Usuario",
-        usuarios_lista,
-        key=f"{KEY_PREFIX}_usuario",
-    )
+    agreement_list = [ALL_OPTION]
+    if agreement_col and agreement_col in e_billing_df.columns:
+        agrements_unicos = (
+            e_billing_df[agreement_col]
+            .dropna()
+            .astype(str)
+            .str.strip()
+            .replace("", pd.NA)
+            .dropna()
+            .unique()
+            .tolist()
+        )
+        agreement_list = [ALL_OPTION] + sorted(agrements_unicos)
+
+    col3, col4 = st.columns(2)
+    with col3:
+        agremeent_sel = render_agreement_filter(
+            agreement_list,
+            key_prefix=KEY_PREFIX,
+        )
+    selected_agreement = None if agremeent_sel == ALL_OPTION else agremeent_sel
+
+    with col4:
+        usuario_sel = render_single_select(
+            "Usuario",
+            users_list,
+            key=f"{KEY_PREFIX}_usuario",
+        )
     selected_users = None if usuario_sel == ALL_OPTION else [usuario_sel]
 
     filtered_e_billing_df = filter_billing(
@@ -122,6 +131,7 @@ def render_billing_electronic_section():
         start_date,
         end_date,
         selected_users=selected_users,
+        selected_agreement = selected_agreement
     )
 
     if filtered_e_billing_df is None or filtered_e_billing_df.empty:
@@ -158,12 +168,12 @@ def render_billing_electronic_section():
         ]
 
     period_label = f"{start_date} - {end_date}"
-    billing_report = build_billing_report(
+    billing_report = build_billing_report_cached(
         df_current=productivity_base_df,
         df_previous=None,
         by_user_df=report_by_user_df,
     )
-    billing_excel = export_billing_report(billing_report, period_label=period_label)
+    billing_excel = export_billing_report_cached(billing_report, period_label=period_label)
 
     filename_suffix = f"_{usuario_sel}" if selected_users else ""
     filename = f"INFORME_PRODUCTIVIDAD_FACTURACION_{filename_suffix}.xlsx"
@@ -174,10 +184,8 @@ def render_billing_electronic_section():
         label="📥 Descargar informe de productividad (Excel)",
     )
 
-    # ---- KPIs duales solicitados ----
     metrics = calculate_billing_productivity(productivity_base_df)
 
-    # ---- Por usuario (valor tercero) ----
     if "VALOR TERCERO" in productivity_base_df.columns:
         total_valor = pd.to_numeric(
             productivity_base_df["VALOR TERCERO"], errors="coerce"
