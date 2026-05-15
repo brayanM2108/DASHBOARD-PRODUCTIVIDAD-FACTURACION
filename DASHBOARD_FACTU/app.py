@@ -17,7 +17,14 @@ from ui.tabs.tab_rips import render_tab_rips
 from ui.tabs.tab_manual_billing import render_tab_manual_billing
 from service.rips_service import map_document_to_name
 from ui.tabs.tab_billing_electronic import render_billing_electronic_section
+import plotly.io as pio
 
+pio.kaleido.scope.chromium_args = (
+    "--headless",
+    "--no-sandbox",
+    "--single-process",
+    "--disable-gpu"
+)
 def init_session_state():
 
     if 'initialized' not in st.session_state:
