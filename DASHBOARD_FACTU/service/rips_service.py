@@ -5,6 +5,7 @@ Functions for RIPS processing and productivity analytics.
 """
 
 import pandas as pd
+import streamlit as st
 
 from data.processors import (
     process_rips_data,
@@ -180,3 +181,9 @@ def calculate_rips_productivity(df):
         "by_date": by_date,
         "daily_average": daily_average,
     }
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def calculate_rips_productivity_cached(df):
+    """Cached wrapper for RIPS productivity metrics."""
+    return calculate_rips_productivity(df)
