@@ -19,8 +19,8 @@ from service.manual_billing_service import (
     filter_administrative_processes,
     get_filter_options,
 )
-from service.report_service import build_processes_report
-from utils.excel_exporter import export_processes_report
+from service.report_service import build_processes_report_cached
+from utils.excel_exporter import export_processes_report_cached
 from ui.components import (
     create_download_button,
     create_excel_download_button,
@@ -28,6 +28,7 @@ from ui.components import (
     show_success_message,
     show_warning_message,
 )
+from ui.filters import render_date_filter_with_bounds, render_single_select
 
 ALL_OPTION = "Todos"
 
@@ -67,6 +68,7 @@ def _clear_processes_data():
     process_file = FILES.get("ArchivoProcesos")
     if process_file and os.path.exists(process_file):
         os.remove(process_file)
+    st.cache_data.clear()
 
 
 def _sync_processes():
@@ -101,6 +103,7 @@ def _sync_processes():
 
             st.session_state["administrative_processes_df"] = processed_df
             persist_administrative_processes(processed_df)
+            st.cache_data.clear()
 
             show_success_message(f"Sincronización exitosa: {len(processed_df):,} registros.")
             st.rerun()
@@ -166,11 +169,13 @@ def render_tab_manual_billing():
         max_date = today
 
     # Two separate date inputs (start / end)
-    col_date1, col_date2 = st.columns(2)
-    with col_date1:
-        start_date = st.date_input("Fecha inicio", value=min_date, key="manual_proc_start_date")
-    with col_date2:
-        end_date = st.date_input("Fecha fin", value=max_date, key="manual_proc_end_date")
+    start_date, end_date = render_date_filter_with_bounds(
+        min_date,
+        max_date,
+        key_prefix="manual_proc",
+        label_start="Fecha inicio",
+        label_end="Fecha fin",
+    )
 
     # Ensure end_date is not before start_date
     if start_date is not None and end_date is not None and end_date < start_date:
@@ -182,10 +187,10 @@ def render_tab_manual_billing():
     col3, col4 = st.columns(2)
     with col3:
         people = [ALL_OPTION] + options.get("people", [])
-        selected_person = st.selectbox("Persona", people, key="manual_proc_person")
+        selected_person = render_single_select("Persona", people, key="manual_proc_person")
     with col4:
         processes = [ALL_OPTION] + options.get("processes", [])
-        selected_process = st.selectbox("Proceso", processes, key="manual_proc_process")
+        selected_process = render_single_select("Proceso", processes, key="manual_proc_process")
 
     # Apply filters
     try:
@@ -209,7 +214,7 @@ def render_tab_manual_billing():
                 st.rerun()
         with c2:
             if st.button("Descargar informe (vacío)", key="btn_download_empty"):
-                processes_report = build_processes_report(
+                processes_report = build_processes_report_cached(
                     df_current=pd.DataFrame(),
                     df_previous=None,
                     selected_person=selected_person if selected_person != ALL_OPTION else None,
@@ -218,7 +223,7 @@ def render_tab_manual_billing():
                 safe_start = _safe_date_str(start_date)
                 safe_end = _safe_date_str(end_date)
                 period_label = f"{safe_start} - {safe_end}" if (safe_start or safe_end) else "Período no especificado"
-                processes_excel = export_processes_report(processes_report, period_label=period_label)
+                processes_excel = export_processes_report_cached(processes_report, period_label=period_label)
                 filename_suffix = f"_{selected_person}" if selected_person else ""
                 filename = f"INFORME_PRODUCTIVIDAD_PROCESOSMANUALES_{filename_suffix}.xlsx"
 
@@ -324,13 +329,13 @@ def render_tab_manual_billing():
     )
 
     try:
-        processes_report = build_processes_report(
+        processes_report = build_processes_report_cached(
             df_current=filtered_df,
             df_previous=None,
             selected_person=selected_person if selected_person != ALL_OPTION else None,
             selected_process=selected_process if selected_process != ALL_OPTION else None,
         )
-        processes_excel = export_processes_report(processes_report, period_label=period_label)
+        processes_excel = export_processes_report_cached(processes_report, period_label=period_label)
         filename_suffix = f"_{selected_person}" if selected_person else ""
         filename = f"INFORME_PRODUCTIVIDAD_PROCESOSMANUALES_{filename_suffix}.xlsx"
         create_excel_download_button(
