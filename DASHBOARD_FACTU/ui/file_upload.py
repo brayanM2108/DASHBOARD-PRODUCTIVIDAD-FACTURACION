@@ -8,7 +8,7 @@ import streamlit as st
 
 from config.settings import COLUMN_MARKERS, COLUMN_NAMES
 from data.loaders import (
-    load_billers_master,
+    load_billers_master_cached,
     load_uploaded_dataframe,
     save_all_persisted_frames,
 )
@@ -18,6 +18,10 @@ from service.legalizations_service import process_legalizations
 from service.rips_service import map_document_to_name, process_rips
 from ui.components import show_error_message, show_success_message, show_warning_message
 
+
+def _clear_streamlit_caches():
+    """Invalidate Streamlit caches after data mutations."""
+    st.cache_data.clear()
 
 
 def render_file_upload_section():
@@ -91,6 +95,7 @@ def clear_data_type(session_keys, file_keys, nombre):
                 show_error_message(f"Error al eliminar archivo: {e}")
                 return
 
+    _clear_streamlit_caches()
     show_success_message(f"{nombre} limpiados correctamente.")
     st.rerun()
 
@@ -123,6 +128,7 @@ def clear_all_data():
                 show_error_message(f"Error al eliminar {file_key}: {e}")
                 return
 
+    _clear_streamlit_caches()
     show_success_message("Todos los datos han sido limpiados correctamente.")
     st.rerun()
 
@@ -189,6 +195,7 @@ def render_legalizaciones_upload():
                     "ppl_legalizations": df_ppl,
                     "agreement_legalizations": df_convenios,
                 })
+                _clear_streamlit_caches()
 
                 show_success_message(f"✅ Legalizaciones procesadas: PPL={count_ppl:,}, Convenios={count_conv:,}")
                 st.rerun()
@@ -243,6 +250,7 @@ def render_rips_upload():
 
                 st.session_state['rips_df'] = df_rips
                 save_all_persisted_frames({"rips": df_rips})
+                _clear_streamlit_caches()
 
                 show_success_message(f"RIPS procesados: {count_rips:,} registros.")
                 st.rerun()
@@ -280,6 +288,7 @@ def render_facturacion_electronica_upload():
 
                 st.session_state['electronic_billing_df'] = df_proc
                 save_all_persisted_frames({"electronic_billing": df_proc})
+                _clear_streamlit_caches()
 
                 show_success_message(f"Facturación electrónica procesada: {count_fact_elec:,} registros.")
                 st.rerun()
@@ -310,7 +319,7 @@ def render_facturadores_reload():
     with col1:
         if st.button("🔄 Recargar Facturadores", key="btn_reload_fact", width="stretch"):
             with st.spinner("Recargando facturadores..."):
-                df_facturadores = load_billers_master()
+                df_facturadores = load_billers_master_cached()
 
                 if df_facturadores is None:
                     show_error_message("No se pudo cargar el archivo de facturadores.")
@@ -318,6 +327,7 @@ def render_facturadores_reload():
 
                 st.session_state['billers_df'] = df_facturadores
                 save_all_persisted_frames({"billers": df_facturadores})
+                _clear_streamlit_caches()
 
                 show_success_message("Facturadores recargados correctamente.")
                 st.rerun()
@@ -351,6 +361,7 @@ def render_facturadores_reload():
 
                 st.session_state['rips_df'] = df_rips_cruzado
                 save_all_persisted_frames({"rips": df_rips_cruzado})
+                _clear_streamlit_caches()
 
                 if docs_convertidos > 0:
                     show_success_message(f"✅ RIPS recruzados: {docs_convertidos:,} documentos convertidos a nombres.")
