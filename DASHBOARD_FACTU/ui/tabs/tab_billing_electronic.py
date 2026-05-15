@@ -8,7 +8,6 @@ Uses only electronic billing data (USUARIO + VALOR TERCERO).
 import pandas as pd
 import streamlit as st
 from utils.excel_exporter import export_billing_report_cached
-
 from config.settings import COLUMN_NAMES_BILLING
 from data.validators import find_first_column_variant
 from service.billing_electronic_service import (
@@ -63,7 +62,7 @@ def render_billing_electronic_section():
     if e_billing_df is None or e_billing_df.empty:
         show_info_message("No hay datos de facturación electrónica. Carga un archivo en la sección de carga.")
         return
-    st.subheader("💰Productividad Facturación")
+    st.subheader("Productividad Facturación")
     
     e_billing_df = prepare_electronic_billing_df_cached(e_billing_df)
     if e_billing_df is None or e_billing_df.empty:
@@ -181,7 +180,7 @@ def render_billing_electronic_section():
     create_excel_download_button(
         billing_excel,
         filename=filename,
-        label="📥 Descargar informe de productividad (Excel)",
+        label=" Descargar informe de productividad (Excel)",
     )
 
     metrics = calculate_billing_productivity(productivity_base_df)
@@ -202,7 +201,7 @@ def render_billing_electronic_section():
     with c2:
         st.metric("Total Valor Tercero", f"${total_valor:,.0f}")
 
-    st.subheader("📈 Valor Facturado por Usuario")
+    st.subheader(" Valor Facturado por Usuario")
     if report_by_user_df is None or report_by_user_df.empty:
         show_info_message("No hay datos para graficar por usuario.")
     else:
@@ -213,22 +212,14 @@ def render_billing_electronic_section():
         df_valor_show["COUNT"] = pd.to_numeric(df_valor_show["COUNT"], errors="coerce").fillna(0)
         st.dataframe(df_valor_show.style.format({"COUNT": "${:,.0f}"}), width="stretch")
 
-    st.subheader("📊 Cantidad de Registros por Usuario")
+    st.subheader(" Cantidad de Registros por Usuario")
     df_registros = plot_billing_electronic_records_by_user(productivity_base_df, result_user_col)
     if df_registros is not None and not df_registros.empty:
         st.dataframe(df_registros, width="stretch")
 
 
 
-    st.subheader("📅 Valor Facturado por Fecha")
+    st.subheader(" Valor Facturado por Fecha")
     df_fecha_registros = plot_billing_electronic_records_by_date(metrics.get("by_date_dual"))
     if df_fecha_registros is not None and not df_fecha_registros.empty:
         st.dataframe(df_fecha_registros.style.format({"VALOR_TERCERO": "${:,.0f}"}), width="stretch")
-
-
-    with st.expander("📊 Ver datos detallados", expanded=False):
-        show_dataframe(filtered_e_billing_df, title="Datos de Facturacion Electronica Filtrados")
-        create_download_button(
-            filtered_e_billing_df,
-            "facturacion_electronica_filtrada.csv",
-        )

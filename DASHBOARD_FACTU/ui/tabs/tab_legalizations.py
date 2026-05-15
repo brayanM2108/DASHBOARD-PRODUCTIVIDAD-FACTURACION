@@ -63,7 +63,7 @@ def _period_label(start_date, end_date) -> str:
 
 def render_tab_legalizations():
     """Render legalizations tab with shared filters and PPL / Agreements sub-tabs."""
-    st.header("📋 Legalizaciones")
+    st.header(" Legalizaciones")
 
     ppl_df = st.session_state.get("ppl_legalizations_df")
     agreements_df = st.session_state.get("agreement_legalizations_df")
@@ -106,7 +106,7 @@ def render_tab_legalizations():
     st.divider()
 
     # Previous period inputs (collapsed to keep UI clean)
-    with st.expander("📅 Comparar con período anterior (opcional)"):
+    with st.expander(" Comparar con período anterior (opcional)"):
         col3, col4 = st.columns(2)
         with col3:
             prev_start = st.date_input("Inicio período anterior", key="leg_prev_start")
@@ -129,7 +129,7 @@ def render_tab_legalizations():
     excel_bytes = export_legalizations_report_cached(report, period_label=period)
 
     st.download_button(
-        label="📥 Descargar informe de productividad (Excel)",
+        label=" Descargar informe de productividad (Excel)",
         data=excel_bytes,
         file_name=filename,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -141,7 +141,7 @@ def render_tab_legalizations():
     # ------------------------------------------------------------------
     # Sub-tabs — receive already-filtered dataframes
     # ------------------------------------------------------------------
-    tab_ppl, tab_convenios = st.tabs(["🏥 PPL", "🤝 Convenios"])
+    tab_ppl, tab_convenios = st.tabs([" PPL", " Convenios"])
 
     with tab_ppl:
         _render_ppl_section(filtered_ppl_df)
@@ -165,7 +165,7 @@ def _render_ppl_section(ppl_df: pd.DataFrame | None) -> None:
     metrics = calculate_legalizations_productivity_cached(ppl_df)
     plot_productivity_charts(metrics, tipo="Legalizaciones PPL")
 
-    with st.expander("📊 Ver datos detallados", expanded=False):
+    with st.expander(" Ver datos detallados", expanded=False):
         show_dataframe(ppl_df, title="Datos de Legalizaciones PPL")
         create_download_button(ppl_df, "legalizaciones_ppl.csv")
 
@@ -180,7 +180,3 @@ def _render_agreements_section(agreements_df: pd.DataFrame | None) -> None:
 
     metrics = calculate_legalizations_productivity_cached(agreements_df, category="Convenios")
     plot_productivity_charts(metrics, tipo="Legalizaciones Convenios")
-
-    with st.expander("📊 Ver datos detallados", expanded=False):
-        show_dataframe(agreements_df, title="Datos de Legalizaciones Convenios")
-        create_download_button(agreements_df, "legalizaciones_convenios.csv")

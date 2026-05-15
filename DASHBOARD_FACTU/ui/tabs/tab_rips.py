@@ -35,7 +35,7 @@ def _build_user_options(df: pd.DataFrame) -> tuple[list[str], str | None]:
 
 def render_tab_rips():
     """Render RIPS tab with independent filters."""
-    st.header("📄 RIPS")
+    st.header(" RIPS")
 
     df_rips = st.session_state.get('rips_df')
 
@@ -79,12 +79,8 @@ def render_tab_rips():
     rips_excel,
 
         filename = f"INFORME_PRODUCTIVIDAD_RIPS_{filename_suffix}.xlsx",
-        label="📥 Descargar informe de productividad (Excel)"
+        label=" Descargar informe de productividad (Excel)"
     )
 
     metrics = calculate_rips_productivity_cached(filtered_df)
     plot_productivity_charts(metrics, tipo="RIPS")
-
-    with st.expander("📊 Ver datos detallados", expanded=False):
-        show_dataframe(filtered_df, title="Datos de RIPS")
-        create_download_button(filtered_df, "rips.csv")

@@ -227,7 +227,7 @@ def render_tab_manual_billing():
                 filename_suffix = f"_{selected_person}" if selected_person else ""
                 filename = f"INFORME_PRODUCTIVIDAD_PROCESOSMANUALES_{filename_suffix}.xlsx"
 
-                create_excel_download_button(processes_excel, filename=filename, label="📥 Descargar informe (vacío)")
+                create_excel_download_button(processes_excel, filename=filename, label=" Descargar informe (vacío)")
         return
 
     # KPIs from service
@@ -322,11 +322,6 @@ def render_tab_manual_billing():
     period_label = f"{safe_start} - {safe_end}" if (safe_start or safe_end) else "Período no especificado"
 
     csv_filename = _sanitize_filename(f"administrative_processes_{safe_start}_{safe_end}.csv")
-    create_download_button(
-        filtered_df,
-        filename=csv_filename,
-        label="📥 Descargar datos filtrados (CSV)",
-    )
 
     try:
         processes_report = build_processes_report_cached(
@@ -341,7 +336,7 @@ def render_tab_manual_billing():
         create_excel_download_button(
             processes_excel,
             filename=filename,
-            label="📥 Descargar informe de productividad (Excel)",
+            label=" Descargar informe de productividad (Excel)",
         )
     except Exception as exc:
         show_error_message(f"Error generando o exportando el informe: {exc}")
