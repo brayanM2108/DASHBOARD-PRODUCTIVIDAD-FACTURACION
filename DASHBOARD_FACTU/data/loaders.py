@@ -76,6 +76,13 @@ def load_all_persisted_frames() -> dict[str, pd.DataFrame | None]:
         datasets[dataset_key] = load_from_parquet(FILES[file_key])
     return datasets
 
+
+@st.cache_data(show_spinner=False, ttl=120)
+def load_all_persisted_frames_cached() -> dict[str, pd.DataFrame | None]:
+    """Cached wrapper for persisted parquet loading."""
+    return load_all_persisted_frames()
+
+
 def save_all_persisted_frames(data_by_dataset: Mapping[str, pd.DataFrame]) -> dict[str, bool]:
     """Persist all provided datasets as parquet using canonical English keys."""
     results: dict[str, bool] = {}
@@ -144,6 +151,12 @@ def load_billers_master(secrets_source: Mapping[str, Any] | None = None) -> pd.D
         return df
 
     return _load_billers_from_file()
+
+
+@st.cache_data(show_spinner=False, ttl=600)
+def load_billers_master_cached(secrets_source: Mapping[str, Any] | None = None) -> pd.DataFrame | None:
+    """Cached wrapper for billers master loading."""
+    return load_billers_master(secrets_source=secrets_source)
 
 
 def load_uploaded_dataframe(file, header_marker: str) -> pd.DataFrame | None:
