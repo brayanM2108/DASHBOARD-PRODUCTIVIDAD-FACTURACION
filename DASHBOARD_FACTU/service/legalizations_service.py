@@ -5,6 +5,7 @@ Functions for legalizations processing and productivity analytics.
 """
 
 import pandas as pd
+import streamlit as st
 
 from config import COLUMN_NAMES_LEGALIZATIONS
 from data.processors import (
@@ -149,3 +150,10 @@ def calculate_legalizations_productivity(df, category="PPL"):
         "daily_average": daily_average,
         "category": category,
     }
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def calculate_legalizations_productivity_cached(df, category="PPL"):
+    """Cached wrapper for legalizations productivity metrics."""
+    return calculate_legalizations_productivity(df, category=category)
+
