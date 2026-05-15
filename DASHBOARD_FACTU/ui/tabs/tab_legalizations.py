@@ -165,10 +165,6 @@ def _render_ppl_section(ppl_df: pd.DataFrame | None) -> None:
     metrics = calculate_legalizations_productivity_cached(ppl_df)
     plot_productivity_charts(metrics, tipo="Legalizaciones PPL")
 
-    with st.expander(" Ver datos detallados", expanded=False):
-        show_dataframe(ppl_df, title="Datos de Legalizaciones PPL")
-        create_download_button(ppl_df, "legalizaciones_ppl.csv")
-
 
 def _render_agreements_section(agreements_df: pd.DataFrame | None) -> None:
     """Render Agreements section. Receives already-filtered dataframe."""
