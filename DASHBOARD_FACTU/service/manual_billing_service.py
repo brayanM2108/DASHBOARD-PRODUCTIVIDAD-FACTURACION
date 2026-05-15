@@ -5,6 +5,7 @@ Service functions for filtering and aggregating administrative process data.
 """
 
 import pandas as pd
+import streamlit as st
 
 REQUIRED_COLUMNS = ("FECHA", "NOMBRE", "PROCESO", "CANTIDAD")
 
@@ -31,6 +32,12 @@ def _normalize_operational_columns(df: pd.DataFrame) -> pd.DataFrame:
     return result_df
 
 
+@st.cache_data(show_spinner=False, ttl=300)
+def _normalize_operational_columns_cached(df: pd.DataFrame) -> pd.DataFrame:
+    """Cached normalization for operational columns."""
+    return _normalize_operational_columns(df)
+
+
 def get_filtered_data(
         df: pd.DataFrame,
         start_date=None,
@@ -40,7 +47,7 @@ def get_filtered_data(
 ) -> pd.DataFrame:
     """Filter data by date range, person, and process."""
     _validate_required_columns(df)
-    filtered_df = _normalize_operational_columns(df)
+    filtered_df = _normalize_operational_columns_cached(df)
 
     if start_date:
         filtered_df = filtered_df[filtered_df["FECHA"] >= pd.Timestamp(start_date)]
@@ -57,7 +64,7 @@ def get_filtered_data(
 def get_summary_by_person(df: pd.DataFrame) -> pd.DataFrame:
     """Return aggregated summary by person."""
     _validate_required_columns(df)
-    normalized_df = _normalize_operational_columns(df)
+    normalized_df = _normalize_operational_columns_cached(df)
 
     return (
         normalized_df
@@ -71,7 +78,7 @@ def get_summary_by_person(df: pd.DataFrame) -> pd.DataFrame:
 def get_summary_by_process(df: pd.DataFrame) -> pd.DataFrame:
     """Return aggregated summary by process type."""
     _validate_required_columns(df)
-    normalized_df = _normalize_operational_columns(df)
+    normalized_df = _normalize_operational_columns_cached(df)
 
     return (
         normalized_df
@@ -94,7 +101,7 @@ def build_processes_kpis(df: pd.DataFrame) -> dict:
             "unique_processes": 0,
         }
 
-    normalized_df = _normalize_operational_columns(df)
+    normalized_df = _normalize_operational_columns_cached(df)
 
     return {
         "total_records": len(normalized_df),
@@ -117,7 +124,7 @@ def build_chart_datasets(df: pd.DataFrame, selected_person=None, selected_proces
             "time_trend": empty_df,
         }
 
-    normalized_df = _normalize_operational_columns(df)
+    normalized_df = _normalize_operational_columns_cached(df)
 
     bar_by_person = normalized_df.groupby("NOMBRE")["CANTIDAD"].sum().reset_index()
 
@@ -162,7 +169,7 @@ def filter_administrative_processes(
 def get_filter_options(df: pd.DataFrame) -> dict:
     """Return available people and process options for UI filters."""
     _validate_required_columns(df)
-    normalized_df = _normalize_operational_columns(df)
+    normalized_df = _normalize_operational_columns_cached(df)
 
     people = sorted(normalized_df["NOMBRE"].dropna().astype(str).unique().tolist())
     processes = sorted(normalized_df["PROCESO"].dropna().astype(str).unique().tolist())
