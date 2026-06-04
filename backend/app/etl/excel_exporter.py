@@ -11,7 +11,6 @@ from datetime import date
 import pandas as pd
 import plotly.express as px
 import plotly.io as pio
-import streamlit as st
 from PIL import Image as PILImage
 from openpyxl.drawing.image import Image as XLImage
 from openpyxl import Workbook
@@ -286,7 +285,7 @@ def _write_standard_executive_summary(
         summary: dict,
 ) -> None:
     """
-    Write executive summary sheet for billing and RIPS modules.
+    Write executive summary sheet for billing modules.
     Layout:
         Row 1-3  : Cover info
         Row 5    : KPIs section title
@@ -372,33 +371,9 @@ def export_billing_report(report: dict, period_label: str = "") -> bytes:
     return _to_bytes(wb)
 
 
-@st.cache_data(show_spinner=False, ttl=300)
 def export_billing_report_cached(report: dict, period_label: str = "") -> bytes:
     """Cached wrapper for billing Excel export."""
     return export_billing_report(report, period_label=period_label)
-
-
-def export_rips_report(report: dict, period_label: str = "") -> bytes:
-    """
-    Generate RIPS Excel report.
-
-    Args:
-        report: Output of report_service.build_rips_report()
-        period_label: Human-readable period string.
-
-    Returns:
-        bytes of the .xlsx file.
-    """
-    wb = Workbook()
-    _write_standard_sheets(wb, report, "RIPS", period_label)
-    _add_standard_charts_sheet(wb, report, "RIPS")
-    return _to_bytes(wb)
-
-
-@st.cache_data(show_spinner=False, ttl=300)
-def export_rips_report_cached(report: dict, period_label: str = "") -> bytes:
-    """Cached wrapper for RIPS Excel export."""
-    return export_rips_report(report, period_label=period_label)
 
 
 def export_legalizations_report(report: dict, period_label: str = "") -> bytes:
@@ -461,7 +436,6 @@ def export_legalizations_report(report: dict, period_label: str = "") -> bytes:
     return _to_bytes(wb)
 
 
-@st.cache_data(show_spinner=False, ttl=300)
 def export_legalizations_report_cached(report: dict, period_label: str = "") -> bytes:
     """Cached wrapper for legalizations Excel export."""
     return export_legalizations_report(report, period_label=period_label)
@@ -519,7 +493,6 @@ def export_processes_report(report: dict, period_label: str = "") -> bytes:
     return _to_bytes(wb)
 
 
-@st.cache_data(show_spinner=False, ttl=300)
 def export_processes_report_cached(report: dict, period_label: str = "") -> bytes:
     """Cached wrapper for administrative processes Excel export."""
     return export_processes_report(report, period_label=period_label)

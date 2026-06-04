@@ -10,25 +10,24 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from config.settings import FILES, PROCESOS_SHEET_URL
-from data.loaders import load_google_sheet_csv, persist_administrative_processes
-from data.processors import process_administrative_processes
-from service.manual_billing_service import (
+from backend.app.utils.config.settings import FILES, PROCESOS_SHEET_URL
+from backend.app.etl.loaders import load_google_sheet_csv, persist_administrative_processes
+from backend.app.etl.transformers import process_administrative_processes
+from backend.app.services.manual_billing_service import (
     build_chart_datasets,
     build_processes_kpis,
     filter_administrative_processes,
     get_filter_options,
 )
-from service.report_service import build_processes_report_cached
-from utils.excel_exporter import export_processes_report_cached
-from ui.components import (
-    create_download_button,
-    create_excel_download_button,
+from backend.app.services.report_service import build_processes_report_cached
+from backend.app.etl.excel_exporter import export_processes_report_cached
+from frontend.components.components import (
     show_error_message,
-    show_success_message,
     show_warning_message,
+    show_success_message,
+    create_excel_download_button,
 )
-from ui.filters import render_date_filter_with_bounds, render_single_select
+from frontend.components.filters import render_date_filter_with_bounds, render_single_select
 
 ALL_OPTION = "Todos"
 
@@ -311,4 +310,3 @@ def render_tab_manual_billing():
             st.plotly_chart(fig3, width = "stretch")
         except Exception as exc:
             show_warning_message(f"Error generando gráfico de tendencia: {exc}")
-

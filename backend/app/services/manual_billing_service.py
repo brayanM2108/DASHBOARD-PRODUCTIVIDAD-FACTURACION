@@ -5,7 +5,6 @@ Service functions for filtering and aggregating administrative process data.
 """
 
 import pandas as pd
-import streamlit as st
 
 REQUIRED_COLUMNS = ("FECHA", "NOMBRE", "PROCESO", "CANTIDAD")
 
@@ -32,9 +31,8 @@ def _normalize_operational_columns(df: pd.DataFrame) -> pd.DataFrame:
     return result_df
 
 
-@st.cache_data(show_spinner=False, ttl=300)
 def _normalize_operational_columns_cached(df: pd.DataFrame) -> pd.DataFrame:
-    """Cached normalization for operational columns."""
+    """Wrapper for operational columns normalization (no cache in backend)."""
     return _normalize_operational_columns(df)
 
 

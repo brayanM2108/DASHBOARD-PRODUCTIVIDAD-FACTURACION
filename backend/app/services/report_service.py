@@ -8,10 +8,9 @@ Consumed by excel_exporter.py to generate downloadable Excel files.
 import pandas as pd
 import streamlit as st
 
-from service.billing_electronic_service import calculate_billing_productivity
-from service.legalizations_service import calculate_legalizations_productivity_cached
-from service.manual_billing_service import build_chart_datasets, build_processes_kpis, get_summary_by_person, get_summary_by_process
-from service.rips_service import calculate_rips_productivity_cached
+from .billing_electronic_service import calculate_billing_productivity
+from .productivity_service import ProductivityService
+from .manual_billing_service import build_chart_datasets, build_processes_kpis, get_summary_by_person, get_summary_by_process
 
 
 # ---------------------------------------------------------------------------
@@ -118,56 +117,6 @@ def build_billing_report_cached(
 
 
 # ---------------------------------------------------------------------------
-# RIPS report
-# ---------------------------------------------------------------------------
-
-def build_rips_report(
-        df_current: pd.DataFrame,
-        df_previous: pd.DataFrame | None = None,
-) -> dict:
-    """
-    Build RIPS report data.
-
-    Args:
-        df_current: Filtered RIPS dataframe for the current period.
-        df_previous: Filtered RIPS dataframe for the previous period (optional).
-
-    Returns:
-        dict with keys: executive_summary, by_user, by_date
-    """
-    metrics_current = calculate_rips_productivity_cached(df_current)
-    metrics_previous = calculate_rips_productivity_cached(df_previous) if df_previous is not None else None
-
-    previous_total = metrics_previous["total"] if metrics_previous else 0
-    previous_daily_avg = metrics_previous["daily_average"] if metrics_previous else 0
-
-    executive_summary = {
-        "total": metrics_current["total"],
-        "daily_average": metrics_current["daily_average"],
-        "top5_by_user": _top5_by_user(metrics_current["by_user"]),
-        "variation": _build_variation_block(metrics_current["total"], previous_total),
-        "variation_daily_avg": _build_variation_block(
-            metrics_current["daily_average"], previous_daily_avg
-        ),
-    }
-
-    return {
-        "executive_summary": executive_summary,
-        "by_user": metrics_current["by_user"],
-        "by_date": metrics_current["by_date"],
-    }
-
-
-@st.cache_data(show_spinner=False, ttl=300)
-def build_rips_report_cached(
-        df_current: pd.DataFrame,
-        df_previous: pd.DataFrame | None = None,
-) -> dict:
-    """Cached wrapper for RIPS report generation."""
-    return build_rips_report(df_current=df_current, df_previous=df_previous)
-
-
-# ---------------------------------------------------------------------------
 # Legalizations report (PPL + Agreements together)
 # ---------------------------------------------------------------------------
 
@@ -190,15 +139,15 @@ def build_legalizations_report(
         dict with keys: executive_summary, ppl, agreements
         - ppl / agreements each contain: metrics, by_user, by_date, top5_by_user
     """
-    ppl_metrics = calculate_legalizations_productivity_cached(ppl_current, category="PPL")
-    agreements_metrics = calculate_legalizations_productivity_cached(agreements_current, category="Convenios")
+    ppl_metrics =  ProductivityService.calculate_legalizations_productivity(ppl_current, category="PPL")
+    agreements_metrics =  ProductivityService.calculate_legalizations_productivity(agreements_current, category="Convenios")
 
     ppl_previous_metrics = (
-        calculate_legalizations_productivity_cached(ppl_previous, category="PPL")
+        ProductivityService.calculate_legalizations_productivity(ppl_previous, category="PPL")
         if ppl_previous is not None else None
     )
     agreements_previous_metrics = (
-        calculate_legalizations_productivity_cached(agreements_previous, category="Convenios")
+        ProductivityService.calculate_legalizations_productivity(agreements_previous, category="Convenios")
         if agreements_previous is not None else None
     )
 

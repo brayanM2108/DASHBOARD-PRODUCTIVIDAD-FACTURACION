@@ -10,17 +10,19 @@ Agreements sub-tabs simultaneously, and drives the Excel export.
 import pandas as pd
 import streamlit as st
 
-from config.settings import COLUMN_NAMES, COLUMN_NAMES_LEGALIZATIONS
-from data.validators import find_first_column_variant
-from service.legalizations_service import (
-    calculate_legalizations_productivity_cached,
+from backend.app.utils.config.settings import COLUMN_NAMES, COLUMN_NAMES_LEGALIZATIONS, PPL_NAME
+from backend.app.etl.loaders import load_billers_master_cached
+from backend.app.etl.validators import find_first_column_variant
+from backend.app.services.legalizations_service import (
+    calculate_legalizations_productivity,
     filter_legalizations,
 )
-from service.report_service import build_legalizations_report_cached
-from utils.excel_exporter import export_legalizations_report_cached
-from ui.components import create_download_button, show_dataframe, show_info_message
-from ui.filters import render_date_filter_from_df, render_single_select
-from ui.visualizations import plot_productivity_charts
+from backend.app.services.report_service import build_legalizations_report_cached
+from backend.app.etl.excel_exporter import export_legalizations_report_cached
+from frontend.components.components import create_download_button, show_dataframe, show_info_message
+from frontend.components.filters import _safe_min_date, _safe_max_date
+from frontend.components.visualizations import plot_productivity_charts
+
 
 ALL_OPTION = "Todos"
 
@@ -48,11 +50,6 @@ def _build_combined_user_options(
 
     return [ALL_OPTION] + sorted(users)
 
-
-# ---------------------------------------------------------------------------
-# Period label builder for the Excel filename / cover
-# ---------------------------------------------------------------------------
-
 def _period_label(start_date, end_date) -> str:
     return f"{start_date.strftime('%d/%m/%Y')} – {end_date.strftime('%d/%m/%Y')}"
 
@@ -63,7 +60,7 @@ def _period_label(start_date, end_date) -> str:
 
 def render_tab_legalizations():
     """Render legalizations tab with shared filters and PPL / Agreements sub-tabs."""
-    st.header(" Legalizaciones")
+    st.header("📋 Legalizaciones")
 
     ppl_df = st.session_state.get("ppl_legalizations_df")
     agreements_df = st.session_state.get("agreement_legalizations_df")
@@ -72,26 +69,15 @@ def render_tab_legalizations():
         show_info_message("No hay datos de legalizaciones. Carga un archivo en la sección de carga.")
         return
 
-    # ------------------------------------------------------------------
-    # Shared filters — applied to BOTH sub-tabs and the Excel export
-    # ------------------------------------------------------------------
-    st.subheader("Filtros")
-
-    # Date range — derive bounds from whichever dataset is available
     reference_df = ppl_df if ppl_df is not None and not ppl_df.empty else agreements_df
     date_col_ref = find_first_column_variant(reference_df, COLUMN_NAMES_LEGALIZATIONS["fecha"])
+    default_start = _safe_min_date(reference_df, date_col_ref)
+    default_end = _safe_max_date(reference_df, date_col_ref)
 
-    start_date, end_date = render_date_filter_from_df(
-        reference_df,
-        date_col_ref,
-        key_prefix="leg",
-        label_start="Fecha Inicio",
-        label_end="Fecha Fin",
-    )
+    start_date = st.session_state.get("global_start_date", default_start)
+    end_date = st.session_state.get("global_end_date", default_end)
 
-    # User selector — built from the union of both datasets
-    user_options = _build_combined_user_options(ppl_df, agreements_df)
-    selected_user = render_single_select("Usuario", user_options, key="leg_user")
+    selected_user = st.session_state.get("global_user", ALL_OPTION)
     selected_users = None if selected_user == ALL_OPTION else [selected_user]
 
     # ------------------------------------------------------------------
@@ -162,7 +148,7 @@ def _render_ppl_section(ppl_df: pd.DataFrame | None) -> None:
         show_info_message("No hay datos de legalizaciones PPL para los filtros seleccionados.")
         return
 
-    metrics = calculate_legalizations_productivity_cached(ppl_df)
+    metrics = calculate_legalizations_productivity(ppl_df)
     plot_productivity_charts(metrics, tipo="Legalizaciones PPL")
 
 
@@ -174,5 +160,5 @@ def _render_agreements_section(agreements_df: pd.DataFrame | None) -> None:
         show_info_message("No hay datos de legalizaciones de Convenios para los filtros seleccionados.")
         return
 
-    metrics = calculate_legalizations_productivity_cached(agreements_df, category="Convenios")
+    metrics = calculate_legalizations_productivity(agreements_df, category="Convenios")
     plot_productivity_charts(metrics, tipo="Legalizaciones Convenios")

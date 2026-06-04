@@ -7,8 +7,8 @@ Reusable filtering components for the dashboard UI.
 import pandas as pd
 import streamlit as st
 
-from utils.date_helpers import get_default_date_range
-from service.billers_service import get_billers_list
+from backend.app.etl.utils.date_helpers import get_default_date_range
+from backend.app.services.billers_service import get_billers_list
 
 
 def render_date_filter(key_prefix=""):
@@ -44,10 +44,9 @@ def render_user_filter(df_facturadores, key_prefix=""):
         st.info("No hay facturadores disponibles.")
         return ['Todos']
 
-    selected_users = st.multiselect(
-        "Seleccionar Facturador",
+    selected_users = st.selectbox(
+        "Seleccionar Usuario",
         options=['Todos'] + billers_list,
-        default=['Todos'],
         key=f"{key_prefix}_usuarios"
     )
 
@@ -128,3 +127,19 @@ def render_agreement_filter(agreement_list, key_prefix=""):
         agreement_list,
         key=f"{key_prefix}_convenio",
     )
+
+
+def _safe_min_date(df: pd.DataFrame, date_col: str | None) -> pd.Timestamp:
+    if date_col and date_col in df.columns:
+        min_value = pd.to_datetime(df[date_col], errors="coerce").min()
+        if pd.notna(min_value):
+            return min_value
+    return pd.Timestamp.now()
+
+
+def _safe_max_date(df: pd.DataFrame, date_col: str | None) -> pd.Timestamp:
+    if date_col and date_col in df.columns:
+        max_value = pd.to_datetime(df[date_col], errors="coerce").max()
+        if pd.notna(max_value):
+            return max_value
+    return pd.Timestamp.now()
