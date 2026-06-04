@@ -1,20 +1,26 @@
-from pydantic_settings import BaseSettings
+from pathlib import Path
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
+ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 class Settings(BaseSettings):
 
-    APP_NAME: str
+    APP_NAME: str = Field(...)
+    API_PREFIX: str = Field(...)
 
-    API_PREFIX: str
+    DATABASE_URL: str = Field(...)
 
-    DATABASE_URL: str
+    JWT_SECRET: str = Field(...)
+    JWT_ALGORITHM: str = Field(...)
+    JWT_EXPIRE_MINUTES: int = Field(...)
 
-    JWT_SECRET: str
-    JWT_ALGORITHM: str
-    JWT_EXPIRE_MINUTES: int
+    LEGALIZATIONS_PARQUET: str = Field(...)
+    ELECTRONIC_BILLING_PARQUET: str = Field(...)
 
-    class Config:
-        env_file = ".env"
-
+    model_config = SettingsConfigDict(
+        env_file=ENV_FILE,
+        extra="ignore"
+    )
 
 settings = Settings()

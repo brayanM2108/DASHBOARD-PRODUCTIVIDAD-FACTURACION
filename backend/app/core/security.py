@@ -3,7 +3,7 @@ from passlib.context import CryptContext
 from jose import jwt
 import hashlib
 
-from app.core.config import settings
+from .config import settings
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
