@@ -1,3 +1,0 @@
-from .tab_legalizations import render_tab_legalizations
-from .tab_rips import render_tab_rips
-from .tab_manual_billing import render_tab_manual_billing
