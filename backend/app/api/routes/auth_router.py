@@ -1,10 +1,8 @@
-from fastapi import (APIRouter,Depends,HTTPException,status)
-from sqlalchemy.orm import Session
-from app.db.session import get_db
-from app.services.auth_service import AuthService
-from app.api.schemas.auth import (Token,LoginRequest,RegisterRequest)
-from app.api.schemas.user import UserOut
-from app.api.routes.deps import get_auth_service,get_current_user
+from fastapi import APIRouter, Depends, HTTPException, status
+from ...services.auth_service import AuthService
+from ..schemas.auth import Token, LoginRequest, RegisterRequest
+from ..schemas.user import UserOut
+from ..deps import get_auth_service, get_current_user
 
 router = APIRouter(
     prefix="/auth",
@@ -17,10 +15,9 @@ router = APIRouter(
 )
 def login(
         payload: LoginRequest,
-        db: Session = Depends(get_db),
         auth_service: AuthService = Depends(get_auth_service),
 ):
-    token = auth_service.authenticate(db, payload.username, payload.password)
+    token = auth_service.authenticate(payload.username, payload.password)
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -32,10 +29,9 @@ def login(
 @router.post("/register", response_model=Token)
 def register(
         payload: RegisterRequest,
-        db: Session = Depends(get_db),
         auth_service: AuthService = Depends(get_auth_service),
 ):
-    result = auth_service.register(db, payload.username, payload.password)
+    result = auth_service.register(payload.username, payload.password)
     if not result:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

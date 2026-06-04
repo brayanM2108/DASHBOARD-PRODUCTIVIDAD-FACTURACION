@@ -10,6 +10,15 @@ class InvalidCredentialsException(AppException):
             error_code="INVALID_CREDENTIALS"
         )
 
+class UserAlreadyExist(AppException):
+
+    def __init__(self):
+        super().__init__(
+            message="El usuario ya existe",
+            status_code=409,
+            error_code="INVALID_RECORD"
+        )
+
 
 class InvalidTokenException(AppException):
 
