@@ -4,7 +4,12 @@ Business logic - Manual Billing / Administrative Processes
 Service functions for filtering and aggregating administrative process data.
 """
 
+from datetime import date
+from typing import Optional
+
 import pandas as pd
+
+from ..repositories.administrative_process_repository import AdministrativeProcessRepository
 
 REQUIRED_COLUMNS = ("FECHA", "NOMBRE", "PROCESO", "CANTIDAD")
 
@@ -176,3 +181,78 @@ def get_filter_options(df: pd.DataFrame) -> dict:
         "people": people,
         "processes": processes,
     }
+
+
+class ManualBillingService:
+
+    def __init__(self, repository: AdministrativeProcessRepository):
+        self._repository = repository
+
+    def create_process(self, fecha: date, nombre: str, documento: str, proceso: str, cantidad: int, usuario_id: int):
+        record = self._repository.create(
+            fecha=fecha,
+            nombre=nombre,
+            documento=documento,
+            proceso=proceso,
+            cantidad=cantidad,
+            usuario_id=usuario_id,
+        )
+        return record
+
+    def get_process(self, process_id: int):
+        return self._repository.get_by_id(process_id)
+
+    def list_processes(
+        self,
+        fecha_desde: Optional[date] = None,
+        fecha_hasta: Optional[date] = None,
+        nombre: Optional[str] = None,
+        proceso: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 1000,
+    ):
+        return self._repository.list(
+            fecha_desde=fecha_desde,
+            fecha_hasta=fecha_hasta,
+            nombre=nombre,
+            proceso=proceso,
+            skip=skip,
+            limit=limit,
+        )
+
+    def count_processes(
+        self,
+        fecha_desde: Optional[date] = None,
+        fecha_hasta: Optional[date] = None,
+        nombre: Optional[str] = None,
+        proceso: Optional[str] = None,
+    ) -> int:
+        return self._repository.count(
+            fecha_desde=fecha_desde,
+            fecha_hasta=fecha_hasta,
+            nombre=nombre,
+            proceso=proceso,
+        )
+
+    def update_process(self, process_id: int, **kwargs):
+        return self._repository.update(process_id, **kwargs)
+
+    def delete_process(self, process_id: int) -> bool:
+        return self._repository.delete(process_id)
+
+    def to_dataframe(self, records: list) -> pd.DataFrame:
+        if not records:
+            return pd.DataFrame(columns=["FECHA", "NOMBRE", "DOCUMENTO", "PROCESO", "CANTIDAD"])
+        rows = [
+            {
+                "FECHA": r.fecha,
+                "NOMBRE": r.nombre,
+                "DOCUMENTO": r.documento,
+                "PROCESO": r.proceso,
+                "CANTIDAD": r.cantidad,
+            }
+            for r in records
+        ]
+        df = pd.DataFrame(rows)
+        df["FECHA"] = pd.to_datetime(df["FECHA"])
+        return df

@@ -2,10 +2,11 @@ from fastapi import FastAPI
 
 from .core.config import settings
 from .db.session import engine
-from .models.user import Base
+from .models import Base
 from .api.routes.auth_router import router as auth_router
 from .api.routes.billing_router import router as billing_router
 from .api.routes.legalization_router import router as legalization_router
+from .api.routes.administrative_process_router import router as administrative_process_router
 from app.core.exceptions.base import AppException
 from app.core.exceptions.handlers import (
     app_exception_handler
@@ -15,7 +16,8 @@ app = FastAPI(
     title=settings.APP_NAME
 )
 
-Base.metadata.create_all(bind=engine)
+def startup():
+    Base.metadata.create_all(bind=engine)
 
 @app.get("/")
 def root():
@@ -36,6 +38,11 @@ app.include_router(
 
 app.include_router(
     legalization_router,
+    prefix=settings.API_PREFIX
+)
+
+app.include_router(
+    administrative_process_router,
     prefix=settings.API_PREFIX
 )
 

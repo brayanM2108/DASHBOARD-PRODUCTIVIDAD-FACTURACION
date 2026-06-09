@@ -47,6 +47,4 @@ def persist_legalizations(df: pd.DataFrame) -> dict[str, bool]:
     return save_all_persisted_frames({"legalizations_df": df})
 
 
-def persist_administrative_processes(df: pd.DataFrame) -> dict[str, bool]:
-    """Persist processed administrative processes dataframe using canonical key."""
-    return save_all_persisted_frames({"administrative_processes_df": df})
+
