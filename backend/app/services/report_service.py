@@ -8,7 +8,11 @@ Consumed by excel_exporter.py to generate downloadable Excel files.
 import pandas as pd
 import streamlit as st
 
-from .billing_electronic_service import calculate_billing_productivity
+from ..etl.transformers.legalizations_transformer import (
+    AGREEMENT_TYPE,
+    PPL_TYPE,
+)
+from ..etl.filters.legalizations_filter import filter_legalizations
 from .productivity_service import ProductivityService
 from .manual_billing_service import build_chart_datasets, build_processes_kpis, get_summary_by_person, get_summary_by_process
 
@@ -71,8 +75,8 @@ def build_billing_report(
     Returns:
         dict with keys: executive_summary, by_user, by_date
     """
-    metrics_current = calculate_billing_productivity(df_current)
-    metrics_previous = calculate_billing_productivity(df_previous) if df_previous is not None else None
+    metrics_current = ProductivityService.calculate_electronic_billing_productivity(df_current)
+    metrics_previous = ProductivityService.calculate_electronic_billing_productivity(df_previous) if df_previous is not None else None
 
     by_user_current = by_user_df if by_user_df is not None else metrics_current["by_user"]
 
@@ -117,38 +121,70 @@ def build_billing_report_cached(
 
 
 # ---------------------------------------------------------------------------
-# Legalizations report (PPL + Agreements together)
+# Legalizations report (unified dataframe split by type)
 # ---------------------------------------------------------------------------
 
 def build_legalizations_report(
-        ppl_current: pd.DataFrame,
-        agreements_current: pd.DataFrame,
-        ppl_previous: pd.DataFrame | None = None,
-        agreements_previous: pd.DataFrame | None = None,
+        legalizations_current: pd.DataFrame,
+        legalizations_previous: pd.DataFrame | None = None,
 ) -> dict:
     """
-    Build legalizations report data combining PPL and Agreements.
+    Build legalizations report data from the unified legalizations dataframe.
 
     Args:
-        ppl_current: Filtered PPL dataframe for the current period.
-        agreements_current: Filtered Agreements dataframe for the current period.
-        ppl_previous: PPL dataframe for the previous period (optional).
-        agreements_previous: Agreements dataframe for the previous period (optional).
+        legalizations_current: Filtered legalizations dataframe for the current period.
+        legalizations_previous: Legalizations dataframe for the previous period (optional).
 
     Returns:
         dict with keys: executive_summary, ppl, agreements
         - ppl / agreements each contain: metrics, by_user, by_date, top5_by_user
     """
-    ppl_metrics =  ProductivityService.calculate_legalizations_productivity(ppl_current, category="PPL")
-    agreements_metrics =  ProductivityService.calculate_legalizations_productivity(agreements_current, category="Convenios")
+    ppl_current = filter_legalizations(
+        legalizations_current,
+        start_date=None,
+        end_date=None,
+        legalization_type=PPL_TYPE,
+    )
+    agreements_current = filter_legalizations(
+        legalizations_current,
+        start_date=None,
+        end_date=None,
+        legalization_type=AGREEMENT_TYPE,
+    )
+
+    ppl_metrics = ProductivityService.calculate_legalizations_productivity(ppl_current, category="PPL")
+    agreements_metrics = ProductivityService.calculate_legalizations_productivity(agreements_current, category="Convenios")
+
+    ppl_previous = (
+        filter_legalizations(
+            legalizations_previous,
+            start_date=None,
+            end_date=None,
+            legalization_type=PPL_TYPE,
+        )
+        if legalizations_previous is not None
+        else None
+    )
+    agreements_previous = (
+        filter_legalizations(
+            legalizations_previous,
+            start_date=None,
+            end_date=None,
+            legalization_type=AGREEMENT_TYPE,
+        )
+        if legalizations_previous is not None
+        else None
+    )
 
     ppl_previous_metrics = (
         ProductivityService.calculate_legalizations_productivity(ppl_previous, category="PPL")
-        if ppl_previous is not None else None
+        if ppl_previous is not None
+        else None
     )
     agreements_previous_metrics = (
         ProductivityService.calculate_legalizations_productivity(agreements_previous, category="Convenios")
-        if agreements_previous is not None else None
+        if agreements_previous is not None
+        else None
     )
 
     total_current = ppl_metrics["total"] + agreements_metrics["total"]
@@ -194,17 +230,13 @@ def build_legalizations_report(
 
 @st.cache_data(show_spinner=False, ttl=300)
 def build_legalizations_report_cached(
-        ppl_current: pd.DataFrame,
-        agreements_current: pd.DataFrame,
-        ppl_previous: pd.DataFrame | None = None,
-        agreements_previous: pd.DataFrame | None = None,
+        legalizations_current: pd.DataFrame,
+        legalizations_previous: pd.DataFrame | None = None,
 ) -> dict:
     """Cached wrapper for legalizations report generation."""
     return build_legalizations_report(
-        ppl_current=ppl_current,
-        agreements_current=agreements_current,
-        ppl_previous=ppl_previous,
-        agreements_previous=agreements_previous,
+        legalizations_current=legalizations_current,
+        legalizations_previous=legalizations_previous,
     )
 
 

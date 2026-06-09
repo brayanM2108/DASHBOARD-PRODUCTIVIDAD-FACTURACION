@@ -2,7 +2,11 @@
 
 import pandas as pd
 
-from ..etl.aggregations.productivity import aggregate_records_by_date, aggregate_records_by_user
+from ..etl.aggregations.productivity import (
+    aggregate_records_by_date,
+    aggregate_records_by_user,
+    aggregate_values_by_date,
+)
 from ..etl.validators import find_first_column_variant
 from ..utils.config.settings import COLUMN_NAMES, COLUMN_NAMES_BILLING, COLUMN_NAMES_LEGALIZATIONS
 
@@ -16,8 +20,8 @@ class ProductivityService:
     def empty_record_metrics(category: str | None = None) -> dict:
         result = {
             "total": 0,
-            "by_user": None,
-            "by_date": None,
+            "by_user": [],
+            "by_date": [],
             "daily_average": 0,
         }
         if category is not None:
@@ -26,35 +30,113 @@ class ProductivityService:
 
     @staticmethod
     def calculate_record_productivity(
-        df: pd.DataFrame,
-        user_column_variants=None,
-        date_column_variants=None,
-        category: str | None = None,
+            df: pd.DataFrame,
+            user_column_variants=None,
+            date_column_variants=None,
+            category: str | None = None,
     ) -> dict:
         """Calculate row-count productivity metrics by user and date."""
+
         if df is None or df.empty:
-            return ProductivityService.empty_record_metrics(category=category)
+            return ProductivityService.empty_record_metrics(
+                category=category
+            )
 
-        user_variants = user_column_variants or COLUMN_NAMES["usuario"]
-        date_variants = date_column_variants or COLUMN_NAMES["fecha"]
-        user_col = find_first_column_variant(df, user_variants)
-        date_col = find_first_column_variant(df, date_variants)
+        user_variants = (
+                user_column_variants
+                or COLUMN_NAMES["usuario"]
+        )
 
-        by_user = aggregate_records_by_user(df, user_col, date_col, group_by_date=False) if user_col else None
-        by_date = aggregate_records_by_date(df, date_col) if date_col else None
+        date_variants = (
+                date_column_variants
+                or COLUMN_NAMES["fecha"]
+        )
 
-        daily_average = 0
-        if by_date is not None and not by_date.empty:
-            daily_average = by_date["COUNT"].mean()
+        user_col = find_first_column_variant(
+            df,
+            user_variants,
+        )
+
+        date_col = find_first_column_variant(
+            df,
+            date_variants,
+        )
+
+        by_user_df = (
+            aggregate_records_by_user(
+                df,
+                user_col,
+                date_col,
+                group_by_date=False,
+            )
+            if user_col
+            else None
+        )
+
+        by_date_df = (
+            aggregate_records_by_date(
+                df,
+                date_col,
+            )
+            if date_col
+            else None
+        )
+
+        daily_average = 0.0
+
+        if by_date_df is not None and not by_date_df.empty:
+
+            daily_average = float(
+                by_date_df["COUNT"].mean()
+            )
+
+        if by_user_df is not None:
+
+            by_user_df = by_user_df.rename(
+                columns={
+                    "COUNT": "REGISTROS",
+                }
+            )
+
+            by_user = by_user_df.to_dict(
+                orient="records"
+            )
+
+        else:
+
+            by_user = []
+
+        if by_date_df is not None:
+
+            by_date_df = by_date_df.rename(
+                columns={
+                    "COUNT": "REGISTROS",
+                }
+            )
+
+            by_date_df["DATE"] = (
+                by_date_df["DATE"]
+                .astype(str)
+            )
+
+            by_date = by_date_df.to_dict(
+                orient="records"
+            )
+
+        else:
+
+            by_date = []
 
         result = {
             "total": len(df),
+            "daily_average": daily_average,
             "by_user": by_user,
             "by_date": by_date,
-            "daily_average": daily_average,
         }
+
         if category is not None:
             result["category"] = category
+
         return result
 
     @staticmethod
@@ -62,8 +144,8 @@ class ProductivityService:
         """Calculate legalizations productivity preserving existing response shape."""
         return ProductivityService.calculate_record_productivity(
             df,
-            user_column_variants=COLUMN_NAMES["usuario"],
-            date_column_variants=COLUMN_NAMES_LEGALIZATIONS["fecha"],
+            user_column_variants=COLUMN_NAMES_LEGALIZATIONS["usuario"],
+            date_column_variants=list(COLUMN_NAMES_LEGALIZATIONS["fecha"]) + ["FECHA REAL"],
             category=category,
         )
 
@@ -84,7 +166,7 @@ class ProductivityService:
 
     @staticmethod
     def calculate_electronic_billing_productivity(df: pd.DataFrame) -> dict:
-        """Calculate electronic billing productivity preserving existing response shape."""
+        """Calculate electronic billing productivity using shared aggregators."""
         if df is None or df.empty:
             return ProductivityService.empty_billing_metrics()
 
@@ -99,33 +181,28 @@ class ProductivityService:
         by_user_dual = None
         by_user_legacy = None
         if user_col:
-            by_user_dual = (
-                df.groupby(user_col, as_index=False)
-                .agg(
-                    REGISTROS=(user_col, "size"),
-                    VALOR_TERCERO=(VALUE_COLUMN, "sum"),
+            by_user_dual = aggregate_records_by_user(
+                df, user_col, value_column=VALUE_COLUMN,
+            )
+            if by_user_dual is not None and not by_user_dual.empty:
+                by_user_dual = by_user_dual.sort_values("VALOR_TERCERO", ascending=False)
+                by_user_legacy = (
+                    by_user_dual[[user_col, "VALOR_TERCERO"]]
+                    .rename(columns={"VALOR_TERCERO": "COUNT"})
+                    .sort_values("COUNT", ascending=False)
                 )
-                .sort_values("VALOR_TERCERO", ascending=False)
-            )
-            by_user_legacy = (
-                by_user_dual[[user_col, "VALOR_TERCERO"]]
-                .rename(columns={"VALOR_TERCERO": "COUNT"})
-                .sort_values("COUNT", ascending=False)
-            )
 
         by_date_dual = None
         by_date_legacy = None
         if date_col:
-            temp_df = df.dropna(subset=[date_col]).copy()
-            temp_df["DATE"] = pd.to_datetime(temp_df[date_col], errors="coerce").dt.date
-            temp_df = temp_df.dropna(subset=["DATE"])
-            agg_kwargs = {"REGISTROS": (user_col, "size"), "VALOR_TERCERO": (VALUE_COLUMN, "sum")}
-            by_date_dual = temp_df.groupby("DATE", as_index=False).agg(**agg_kwargs).sort_values("DATE")
-            by_date_legacy = (
-                by_date_dual[["DATE", "VALOR_TERCERO"]]
-                .rename(columns={"VALOR_TERCERO": "COUNT"})
-                .sort_values("DATE")
-            )
+            by_date_dual = aggregate_values_by_date(df, date_col, VALUE_COLUMN)
+            if by_date_dual is not None and not by_date_dual.empty:
+                by_date_dual = by_date_dual.sort_values("DATE")
+                by_date_legacy = (
+                    by_date_dual[["DATE", "VALOR_TERCERO"]]
+                    .rename(columns={"VALOR_TERCERO": "COUNT"})
+                    .sort_values("DATE")
+                )
 
         daily_avg_records = 0.0
         daily_avg_valor = 0.0

@@ -66,4 +66,3 @@ def load_billers_master(secrets_source: Mapping[str, Any] | None = None) -> pd.D
 def load_billers_master_cached(secrets_source: Mapping[str, Any] | None = None) -> pd.DataFrame | None:
     """Compatibility wrapper without framework-level caching."""
     return load_billers_master(secrets_source=secrets_source)
-

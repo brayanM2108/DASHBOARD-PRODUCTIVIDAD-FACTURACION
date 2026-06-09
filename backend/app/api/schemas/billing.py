@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class BillingByUserRecord(BaseModel):
@@ -18,6 +18,5 @@ class BillingMetricsResponse(BaseModel):
     total_valor_tercero: float = 0.0
     daily_avg_records: float = 0.0
     daily_avg_valor_tercero: float = 0.0
-    by_user: list[dict] = []
-    by_date: list[dict] = []
-    error: str | None = None
+    by_user: list[BillingByUserRecord] = Field(default_factory=list)
+    by_date: list[BillingByDateRecord] = Field(default_factory=list)

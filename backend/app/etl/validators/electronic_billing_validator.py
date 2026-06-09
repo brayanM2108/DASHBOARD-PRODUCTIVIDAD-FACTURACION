@@ -9,15 +9,15 @@ from .common_validator import (
     find_first_column_variant,
     validate_columns_presence,
 )
-from ...utils.config.settings import COLUMN_NAMES
+from ...utils.config.settings import COLUMN_NAMES_BILLING
 
 E_BILLING_REQUIRED_COLUMNS = ("ESTADO",)
 
 
 def validate_electronic_billing_dataframe(df: pd.DataFrame):
     """Validate electronic billing dataframe schema."""
-    user_col = find_first_column_variant(df, COLUMN_NAMES["usuario"])
-    date_col = find_first_column_variant(df, COLUMN_NAMES["fecha"])
+    user_col = find_first_column_variant(df, COLUMN_NAMES_BILLING["usuario"])
+    date_col = find_first_column_variant(df, COLUMN_NAMES_BILLING["fecha"])
     if user_col is None or date_col is None:
         return False, MSG_MISSING_USER_OR_DATE
 

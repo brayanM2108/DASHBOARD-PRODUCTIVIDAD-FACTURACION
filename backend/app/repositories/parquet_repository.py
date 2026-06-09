@@ -1,34 +1,29 @@
-# app/repositories/parquet_repository.py
-
 from pathlib import Path
+
 import pandas as pd
 
 
 class ParquetRepository:
 
-    def __init__(self, data_path: str):
-        self.data_path = Path(data_path)
+    def __init__(self, parquet_file: str):
+        self.parquet_file = Path(parquet_file)
 
-    def load(self, filename: str) -> pd.DataFrame | None:
+    def load(self) -> pd.DataFrame | None:
 
-        file_path = self.data_path / filename
-
-        if not file_path.exists():
+        if not self.parquet_file.exists():
             return None
 
-        return pd.read_parquet(file_path)
+        return pd.read_parquet(self.parquet_file)
 
-    def save(self, df: pd.DataFrame, filename: str) -> bool:
-
-        file_path = self.data_path / filename
+    def save(self, df: pd.DataFrame) -> bool:
 
         df.to_parquet(
-            file_path,
-            index=False
+            self.parquet_file,
+            index=False,
         )
 
         return True
 
-    def exists(self, filename: str) -> bool:
+    def exists(self) -> bool:
 
-        return (self.data_path / filename).exists()
+        return self.parquet_file.exists()

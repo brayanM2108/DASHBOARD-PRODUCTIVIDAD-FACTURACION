@@ -48,8 +48,8 @@ def render_clear_data_section():
     with col1:
         if st.button("🗑️ Limpiar Legalizaciones", key="btn_clear_leg", width="stretch"):
             clear_data_type(
-                ["ppl_legalizations_df", "agreement_legalizations_df"],
-                ["PPL", "Convenios"],
+                ["legalizations_df"],
+                ["Legalizaciones"],
                 "Legalizaciones",
             )
 
@@ -99,8 +99,7 @@ def clear_all_data():
 
     # Limpiar session_state
     keys_to_clear = [
-        'ppl_legalizations_df',
-        'agreement_legalizations_df',
+        'legalizations_df',
         'billing_df',
         'billers_df',
         'electronic_billing_df',
@@ -110,7 +109,7 @@ def clear_all_data():
         if key in st.session_state:
             st.session_state[key] = None
 
-    files_to_delete = ["PPL", "Convenios", "Facturacion", "FacturacionElectronica", "ArchivoProcesos"]
+    files_to_delete = ["Legalizaciones", "Facturacion", "FacturacionElectronica", "ArchivoProcesos"]
     for file_key in files_to_delete:
         if file_key in FILES and os.path.exists(FILES[file_key]):
             try:
@@ -150,8 +149,7 @@ def render_legalizaciones_upload():
                 st.write("Primeras columnas:", list(df.columns[:10]))
 
                 st.write("🔄 Paso 2: Validando estructura...")
-                df_facturadores = st.session_state.get('billers_df')
-                result = process_legalizations(df, df_facturadores)
+                result = process_legalizations(df, st.session_state.get('billers_df'))
 
                 if result.get("error"):
                     show_error_message(f"Error en validación: {result['error']}")
@@ -160,15 +158,15 @@ def render_legalizaciones_upload():
 
                 st.success("✅ Paso 2 completado: Validación exitosa")
 
-                df_ppl = result.get("ppl_df")
-                df_convenios = result.get("agreements_df")
+                legalizations_df = result.get("legalizations_df")
 
-                count_ppl = len(df_ppl) if df_ppl is not None and not df_ppl.empty else 0
-                count_conv = len(df_convenios) if df_convenios is not None and not df_convenios.empty else 0
+                total_rows = int(result.get("total_rows") or (len(legalizations_df) if legalizations_df is not None else 0))
+                count_ppl = int(result.get("ppl_count") or 0)
+                count_conv = int(result.get("agreements_count") or 0)
 
                 st.write(f"📊 Resultados: PPL={count_ppl}, Convenios={count_conv}")
 
-                if count_ppl == 0 and count_conv == 0:
+                if total_rows == 0:
                     show_warning_message("No se encontraron registros después del procesamiento.")
                     st.write("Verifica que:")
                     st.write("- El archivo tenga registros con ESTADO = 'ACTIVA' o 'Activa'")
@@ -177,13 +175,23 @@ def render_legalizaciones_upload():
                         st.write("Valores únicos de ESTADO:", df['ESTADO'].unique().tolist()[:10])
                     return
 
+                if count_ppl == 0 and count_conv == 0:
+                    show_warning_message(
+                        "Se cargaron filas, pero no se pudo clasificar LEGALIZATION_TYPE. "
+                        "Revisa la columna CONVENIO o la normalización del archivo."
+                    )
+                    st.write("Filas totales procesadas:", total_rows)
+                    if "CONVENIO" in legalizations_df.columns:
+                        st.write("Valores únicos de CONVENIO:", legalizations_df["CONVENIO"].astype(str).unique().tolist()[:10])
+                    if "LEGALIZATION_TYPE" in legalizations_df.columns:
+                        st.write("Valores únicos de LEGALIZATION_TYPE:", legalizations_df["LEGALIZATION_TYPE"].astype(str).unique().tolist()[:10])
+                    return
+
                 st.write("🔄 Paso 3: Guardando datos...")
-                st.session_state['ppl_legalizations_df'] = df_ppl
-                st.session_state['agreement_legalizations_df'] = df_convenios
+                st.session_state['legalizations_df'] = legalizations_df
 
                 save_all_persisted_frames({
-                    "ppl_legalizations": df_ppl,
-                    "agreement_legalizations": df_convenios,
+                    "legalizations_df": legalizations_df,
                 })
                 _clear_streamlit_caches()
 
@@ -223,7 +231,7 @@ def render_facturacion_electronica_upload():
                     return
 
                 st.session_state['electronic_billing_df'] = df_proc
-                save_all_persisted_frames({"electronic_billing": df_proc})
+                save_all_persisted_frames({"electronic_billing_df": df_proc})
                 _clear_streamlit_caches()
 
                 show_success_message(f"Facturación electrónica procesada: {count_fact_elec:,} registros.")

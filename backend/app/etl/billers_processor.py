@@ -73,3 +73,32 @@ def find_biller_info(user, billers_df):
         return None
 
     return matches.iloc[0].to_dict()
+
+
+def filter_by_billers_master(df, billers_df, user_column="USUARIO", biller_name_column="NOMBRE"):
+    """
+    Filter a DataFrame to only include rows where the user column matches
+    a biller name in the billers master.
+    """
+    if df is None or df.empty:
+        return df
+    if billers_df is None or billers_df.empty:
+        return df
+    if user_column not in df.columns or biller_name_column not in billers_df.columns:
+        return df
+
+    valid_names = set(
+        billers_df[biller_name_column]
+        .dropna()
+        .astype(str)
+        .map(normalize_text)
+        .unique()
+    )
+
+    if not valid_names:
+        return df
+
+    result_df = df.copy()
+    result_df[user_column] = result_df[user_column].astype(str).map(normalize_text)
+
+    return result_df[result_df[user_column].isin(valid_names)].copy()

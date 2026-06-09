@@ -8,18 +8,17 @@ from ..file_helpers import load_from_parquet, save_to_parquet
 from ...utils.config.settings import FILES
 
 DATASET_TO_FILE_KEY = {
-    "ppl_legalizations": "PPL",
-    "agreement_legalizations": "Convenios",
-    "billing": "Facturacion",
-    "billers": "Facturadores",
-    "electronic_billing": "FacturacionElectronica",
-    "administrative_processes": "ArchivoProcesos",
+    "legalizations_df": "Legalizaciones",
+    "billing_df": "Facturacion",
+    "billers_df": "Facturadores",
+    "electronic_billing_df": "FacturacionElectronica",
+    "administrative_processes_df": "ArchivoProcesos",
 }
 
 
 def load_all_persisted_frames() -> dict[str, pd.DataFrame | None]:
-    """Load all persisted parquet datasets using canonical English keys."""
-    datasets = {}
+    """Load all persisted parquet datasets using session-state friendly keys."""
+    datasets: dict[str, pd.DataFrame | None] = {}
     for dataset_key, file_key in DATASET_TO_FILE_KEY.items():
         datasets[dataset_key] = load_from_parquet(FILES[file_key])
     return datasets
@@ -31,7 +30,7 @@ def load_all_persisted_frames_cached() -> dict[str, pd.DataFrame | None]:
 
 
 def save_all_persisted_frames(data_by_dataset: Mapping[str, pd.DataFrame]) -> dict[str, bool]:
-    """Persist all provided datasets as parquet using canonical English keys."""
+    """Persist provided datasets as parquet using the unified file mapping."""
     results: dict[str, bool] = {}
 
     for dataset_key, df in data_by_dataset.items():
@@ -43,6 +42,11 @@ def save_all_persisted_frames(data_by_dataset: Mapping[str, pd.DataFrame]) -> di
     return results
 
 
+def persist_legalizations(df: pd.DataFrame) -> dict[str, bool]:
+    """Persist the unified legalizations dataframe."""
+    return save_all_persisted_frames({"legalizations_df": df})
+
+
 def persist_administrative_processes(df: pd.DataFrame) -> dict[str, bool]:
     """Persist processed administrative processes dataframe using canonical key."""
-    return save_all_persisted_frames({"administrative_processes": df})
+    return save_all_persisted_frames({"administrative_processes_df": df})
