@@ -2,6 +2,7 @@ from .billers_processor import (
     extract_unique_users_from_dataframes,
     extract_unique_users_from_master,
     find_biller_info,
+    filter_by_billers_master,
 )
 
 from .file_helpers import (

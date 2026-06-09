@@ -1,6 +1,7 @@
 from ..utils.date_helpers import filter_by_date_range
 from ..validators import find_first_column_variant
-from ...utils.config.settings import COLUMN_NAMES_LEGALIZATIONS
+from ...utils.config.settings import COLUMN_NAMES, COLUMN_NAMES_LEGALIZATIONS
+from ..transformers.legalizations_transformer import LEGALIZATION_TYPE_COLUMN
 
 def _is_user_filter_active(selected_users):
     return (
@@ -11,16 +12,24 @@ def _is_user_filter_active(selected_users):
     )
 
 
-def filter_legalizations(df, start_date, end_date, selected_users=None):
+def filter_legalizations(df, start_date, end_date, selected_users=None, legalization_type: str | None = None):
     """Filter legalizations by date range and optional user selection."""
     if df is None or df.empty:
         return df
 
-    date_col = find_first_column_variant(df, COLUMN_NAMES_LEGALIZATIONS["fecha"])
-    if date_col is None:
-        return df
+    filtered_df = df
 
-    filtered_df = filter_by_date_range(df, date_col, start_date, end_date)
+    if legalization_type and LEGALIZATION_TYPE_COLUMN in filtered_df.columns:
+        filtered_df = filtered_df[filtered_df[LEGALIZATION_TYPE_COLUMN] == legalization_type]
+
+    if start_date is None or end_date is None:
+        return filtered_df
+
+    date_col = find_first_column_variant(filtered_df, list(COLUMN_NAMES["fecha"]) + ["FECHA REAL"])
+    if date_col is None:
+        return filtered_df
+
+    filtered_df = filter_by_date_range(filtered_df, date_col, start_date, end_date)
 
     if _is_user_filter_active(selected_users):
         user_col = find_first_column_variant(filtered_df, COLUMN_NAMES_LEGALIZATIONS["usuario"])

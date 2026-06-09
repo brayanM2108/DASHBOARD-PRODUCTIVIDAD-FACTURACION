@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class LegalizationByUserRecord(BaseModel):
@@ -9,14 +9,26 @@ class LegalizationByUserRecord(BaseModel):
 class LegalizationByDateRecord(BaseModel):
     DATE: str | None = None
     REGISTROS: int | None = None
-    VALOR_TERCERO: float | None = None
+
+class ProductivityMetricsResponse(BaseModel):
+
+    total: int = 0
+
+    daily_average: float = 0.0
+
+    by_user: list[LegalizationByUserRecord] = Field(
+        default_factory=list
+    )
+
+    by_date: list[LegalizationByDateRecord] = Field(
+        default_factory=list
+    )
+
+    category: str | None = None
 
 
 class LegalizationMetricsResponse(BaseModel):
-    total_records: int = 0
-    daily_avg_records: float = 0.0
 
-    by_user: list[LegalizationByUserRecord] = []
-    by_date: list[LegalizationByDateRecord] = []
+    ppl: ProductivityMetricsResponse
 
-    error: str | None = None
+    agreements: ProductivityMetricsResponse

@@ -1,164 +1,164 @@
-"""
-Legalizations tab
-=================
-UI to visualize and analyze PPL and agreements legalizations.
-
-User filter lives at the top level so it applies to both PPL and
-Agreements sub-tabs simultaneously, and drives the Excel export.
-"""
-
 import pandas as pd
 import streamlit as st
 
-from backend.app.utils.config.settings import COLUMN_NAMES, COLUMN_NAMES_LEGALIZATIONS, PPL_NAME
-from backend.app.etl.loaders import load_billers_master_cached
-from backend.app.etl.validators import find_first_column_variant
-from backend.app.services.legalizations_service import (
-    calculate_legalizations_productivity,
-    filter_legalizations,
+from frontend.services.legalizations_service import (
+    LegalizationsService,
 )
-from backend.app.services.report_service import build_legalizations_report_cached
-from backend.app.etl.excel_exporter import export_legalizations_report_cached
-from frontend.components.components import create_download_button, show_dataframe, show_info_message
-from frontend.components.filters import _safe_min_date, _safe_max_date
-from frontend.components.visualizations import plot_productivity_charts
-
 
 ALL_OPTION = "Todos"
 
 
-# ---------------------------------------------------------------------------
-# User options helper — merges users from both datasets
-# ---------------------------------------------------------------------------
-
-def _build_combined_user_options(
-        ppl_df: pd.DataFrame | None,
-        agreements_df: pd.DataFrame | None,
-) -> list[str]:
-    """
-    Return sorted unique users from PPL and Agreements combined.
-    This ensures the selector covers users that may appear in only one dataset.
-    """
-    users: set[str] = set()
-
-    for df in (ppl_df, agreements_df):
-        if df is None or df.empty:
-            continue
-        user_col = find_first_column_variant(df, COLUMN_NAMES["usuario"])
-        if user_col and user_col in df.columns:
-            users.update(df[user_col].dropna().astype(str).unique().tolist())
-
-    return [ALL_OPTION] + sorted(users)
-
-def _period_label(start_date, end_date) -> str:
-    return f"{start_date.strftime('%d/%m/%Y')} – {end_date.strftime('%d/%m/%Y')}"
-
-
-# ---------------------------------------------------------------------------
-# Main tab renderer
-# ---------------------------------------------------------------------------
-
 def render_tab_legalizations():
-    """Render legalizations tab with shared filters and PPL / Agreements sub-tabs."""
     st.header("📋 Legalizaciones")
 
-    ppl_df = st.session_state.get("ppl_legalizations_df")
-    agreements_df = st.session_state.get("agreement_legalizations_df")
+    start_date = st.session_state.get(
+        "global_start_date"
+    )
 
-    if (ppl_df is None or ppl_df.empty) and (agreements_df is None or agreements_df.empty):
-        show_info_message("No hay datos de legalizaciones. Carga un archivo en la sección de carga.")
+    end_date = st.session_state.get(
+        "global_end_date"
+    )
+
+    selected_user = st.session_state.get(
+        "global_user",
+        ALL_OPTION,
+    )
+
+    selected_users = (
+        None
+        if selected_user == ALL_OPTION
+        else [selected_user]
+    )
+    token = st.session_state.get("token")
+    if not token:
+        st.warning("Debes iniciar sesión para ver las legalizaciones.")
         return
 
-    reference_df = ppl_df if ppl_df is not None and not ppl_df.empty else agreements_df
-    date_col_ref = find_first_column_variant(reference_df, COLUMN_NAMES_LEGALIZATIONS["fecha"])
-    default_start = _safe_min_date(reference_df, date_col_ref)
-    default_end = _safe_max_date(reference_df, date_col_ref)
+    service = LegalizationsService()
 
-    start_date = st.session_state.get("global_start_date", default_start)
-    end_date = st.session_state.get("global_end_date", default_end)
-
-    selected_user = st.session_state.get("global_user", ALL_OPTION)
-    selected_users = None if selected_user == ALL_OPTION else [selected_user]
-
-    # ------------------------------------------------------------------
-    # Apply shared filters to both datasets
-    # ------------------------------------------------------------------
-    filtered_ppl_df = filter_legalizations(ppl_df, start_date, end_date, selected_users)
-    filtered_agreements_df = filter_legalizations(agreements_df, start_date, end_date, selected_users)
-
-    # ------------------------------------------------------------------
-    # Excel download — uses already-filtered dataframes
-    # ------------------------------------------------------------------
-    st.divider()
-
-    # Previous period inputs (collapsed to keep UI clean)
-    with st.expander(" Comparar con período anterior (opcional)"):
-        col3, col4 = st.columns(2)
-        with col3:
-            prev_start = st.date_input("Inicio período anterior", key="leg_prev_start")
-        with col4:
-            prev_end = st.date_input("Fin período anterior", key="leg_prev_end")
-
-        prev_ppl_df = filter_legalizations(ppl_df, prev_start, prev_end, selected_users)
-        prev_agreements_df = filter_legalizations(agreements_df, prev_start, prev_end, selected_users)
-
-    period = _period_label(start_date, end_date)
-    filename_suffix = f"_{selected_user}" if selected_users else ""
-    filename = f"informe_legalizaciones{filename_suffix}.xlsx"
-
-    report = build_legalizations_report_cached(
-        ppl_current=filtered_ppl_df,
-        agreements_current=filtered_agreements_df,
-        ppl_previous=prev_ppl_df if "prev_ppl_df" in dir() else None,
-        agreements_previous=prev_agreements_df if "prev_agreements_df" in dir() else None,
-    )
-    excel_bytes = export_legalizations_report_cached(report, period_label=period)
-
-    st.download_button(
-        label=" Descargar informe de productividad (Excel)",
-        data=excel_bytes,
-        file_name=filename,
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        key="leg_download",
+    metrics = service.get_metrics(
+        start_date=start_date,
+        end_date=end_date,
+        selected_users=selected_users,
     )
 
-    st.divider()
+    if metrics.error:
 
-    # ------------------------------------------------------------------
-    # Sub-tabs — receive already-filtered dataframes
-    # ------------------------------------------------------------------
-    tab_ppl, tab_convenios = st.tabs([" PPL", " Convenios"])
+        st.error(metrics.error)
+        return
+
+    tab_ppl, tab_agreements = st.tabs(
+        [
+            "📋 PPL",
+            "📋 Convenios",
+        ]
+    )
 
     with tab_ppl:
-        _render_ppl_section(filtered_ppl_df)
 
-    with tab_convenios:
-        _render_agreements_section(filtered_agreements_df)
+        _render_productivity_section(
+            metrics=metrics.ppl,
+            title="Legalizaciones PPL",
+        )
 
+    with tab_agreements:
 
-# ---------------------------------------------------------------------------
-# Sub-section renderers — no filters here, data arrives pre-filtered
-# ---------------------------------------------------------------------------
-
-def _render_ppl_section(ppl_df: pd.DataFrame | None) -> None:
-    """Render PPL section. Receives already-filtered dataframe."""
-    st.subheader("Legalizaciones PPL")
-
-    if ppl_df is None or ppl_df.empty:
-        show_info_message("No hay datos de legalizaciones PPL para los filtros seleccionados.")
-        return
-
-    metrics = calculate_legalizations_productivity(ppl_df)
-    plot_productivity_charts(metrics, tipo="Legalizaciones PPL")
+        _render_productivity_section(
+            metrics=metrics.agreements,
+            title="Legalizaciones Convenios",
+        )
 
 
-def _render_agreements_section(agreements_df: pd.DataFrame | None) -> None:
-    """Render Agreements section. Receives already-filtered dataframe."""
-    st.subheader("Legalizaciones Convenios")
+def _render_productivity_section(
+        metrics,
+        title: str,
+):
 
-    if agreements_df is None or agreements_df.empty:
-        show_info_message("No hay datos de legalizaciones de Convenios para los filtros seleccionados.")
-        return
+    st.subheader(title)
 
-    metrics = calculate_legalizations_productivity(agreements_df, category="Convenios")
-    plot_productivity_charts(metrics, tipo="Legalizaciones Convenios")
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        st.metric(
+            label="Total registros",
+            value=f"{metrics.total:,}",
+        )
+
+    with col2:
+
+        st.metric(
+            label="Promedio diario",
+            value=round(
+                metrics.daily_average,
+                2,
+            ),
+        )
+
+    st.divider()
+
+    tab_users, tab_dates = st.tabs(
+        [
+            "👤 Por usuario",
+            "📅 Por fecha",
+        ]
+    )
+
+    with tab_users:
+
+        user_df = pd.DataFrame(
+            metrics.by_user
+        )
+
+        if user_df.empty:
+
+            st.info(
+                "No existen registros para los filtros seleccionados."
+            )
+
+        else:
+
+            st.dataframe(
+                user_df,
+                use_container_width=True,
+            )
+
+            if (
+                    "USUARIO" in user_df.columns
+                    and "REGISTROS" in user_df.columns
+            ):
+
+                st.bar_chart(
+                    data=user_df,
+                    x="USUARIO",
+                    y="REGISTROS",
+                )
+
+    with tab_dates:
+
+        date_df = pd.DataFrame(
+            metrics.by_date
+        )
+
+        if date_df.empty:
+
+            st.info(
+                "No existen registros para los filtros seleccionados."
+            )
+
+        else:
+
+            st.dataframe(
+                date_df,
+                use_container_width=True,
+            )
+
+            if (
+                    "DATE" in date_df.columns
+                    and "REGISTROS" in date_df.columns
+            ):
+
+                st.line_chart(
+                    data=date_df.set_index("DATE"),
+                    y="REGISTROS",
+                )

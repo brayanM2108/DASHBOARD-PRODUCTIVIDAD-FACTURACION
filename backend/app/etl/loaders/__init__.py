@@ -20,6 +20,7 @@ from .parquet_loader import (
     DATASET_TO_FILE_KEY,
     load_all_persisted_frames,
     load_all_persisted_frames_cached,
+    persist_legalizations,
     persist_administrative_processes,
     save_all_persisted_frames,
 )

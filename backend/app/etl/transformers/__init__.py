@@ -14,13 +14,19 @@ from .electronic_billing_transformer import (
 )
 
 from .legalizations_transformer import (
-    split_legalizations
+    AGREEMENT_TYPE,
+    LEGALIZATION_TYPE_COLUMN,
+    PPL_TYPE,
+    prepare_legalizations_dataframe,
 )
 
 __all__ = [
     "_ensure_required_columns",
+    "AGREEMENT_TYPE",
     "process_administrative_processes",
     "process_billing_data",
     "process_electronic_billing_data",
-    "split_legalizations",
+    "LEGALIZATION_TYPE_COLUMN",
+    "PPL_TYPE",
+    "prepare_legalizations_dataframe",
 ]
