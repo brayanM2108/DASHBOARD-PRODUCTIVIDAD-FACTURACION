@@ -11,13 +11,12 @@ class AdministrativeProcessRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def create(self, fecha: date, nombre: str, documento: str, proceso: str, cantidad: int, usuario_id: int) -> AdministrativeProcess:
+    def create(self, fecha: date, proceso: str, cantidad: int, usuario_id: int, observacion: Optional[str] = None) -> AdministrativeProcess:
         record = AdministrativeProcess(
             fecha=fecha,
-            nombre=nombre,
-            documento=documento,
             proceso=proceso,
             cantidad=cantidad,
+            observacion=observacion,
             usuario_id=usuario_id,
         )
         self.db.add(record)
@@ -32,7 +31,6 @@ class AdministrativeProcessRepository:
         self,
         fecha_desde: Optional[date] = None,
         fecha_hasta: Optional[date] = None,
-        nombre: Optional[str] = None,
         proceso: Optional[str] = None,
         skip: int = 0,
         limit: int = 1000,
@@ -43,8 +41,6 @@ class AdministrativeProcessRepository:
             query = query.filter(AdministrativeProcess.fecha >= fecha_desde)
         if fecha_hasta:
             query = query.filter(AdministrativeProcess.fecha <= fecha_hasta)
-        if nombre:
-            query = query.filter(AdministrativeProcess.nombre == nombre)
         if proceso:
             query = query.filter(AdministrativeProcess.proceso == proceso)
 
@@ -54,7 +50,6 @@ class AdministrativeProcessRepository:
         self,
         fecha_desde: Optional[date] = None,
         fecha_hasta: Optional[date] = None,
-        nombre: Optional[str] = None,
         proceso: Optional[str] = None,
     ) -> int:
         query = self.db.query(AdministrativeProcess)
@@ -63,8 +58,6 @@ class AdministrativeProcessRepository:
             query = query.filter(AdministrativeProcess.fecha >= fecha_desde)
         if fecha_hasta:
             query = query.filter(AdministrativeProcess.fecha <= fecha_hasta)
-        if nombre:
-            query = query.filter(AdministrativeProcess.nombre == nombre)
         if proceso:
             query = query.filter(AdministrativeProcess.proceso == proceso)
 

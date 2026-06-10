@@ -188,13 +188,12 @@ class ManualBillingService:
     def __init__(self, repository: AdministrativeProcessRepository):
         self._repository = repository
 
-    def create_process(self, fecha: date, nombre: str, documento: str, proceso: str, cantidad: int, usuario_id: int):
+    def create_process(self, fecha: date, proceso: str, cantidad: int, usuario_id: int, observacion: Optional[str] = None):
         record = self._repository.create(
             fecha=fecha,
-            nombre=nombre,
-            documento=documento,
             proceso=proceso,
             cantidad=cantidad,
+            observacion=observacion,
             usuario_id=usuario_id,
         )
         return record
@@ -206,7 +205,6 @@ class ManualBillingService:
         self,
         fecha_desde: Optional[date] = None,
         fecha_hasta: Optional[date] = None,
-        nombre: Optional[str] = None,
         proceso: Optional[str] = None,
         skip: int = 0,
         limit: int = 1000,
@@ -214,7 +212,6 @@ class ManualBillingService:
         return self._repository.list(
             fecha_desde=fecha_desde,
             fecha_hasta=fecha_hasta,
-            nombre=nombre,
             proceso=proceso,
             skip=skip,
             limit=limit,
@@ -224,13 +221,11 @@ class ManualBillingService:
         self,
         fecha_desde: Optional[date] = None,
         fecha_hasta: Optional[date] = None,
-        nombre: Optional[str] = None,
         proceso: Optional[str] = None,
     ) -> int:
         return self._repository.count(
             fecha_desde=fecha_desde,
             fecha_hasta=fecha_hasta,
-            nombre=nombre,
             proceso=proceso,
         )
 
@@ -242,7 +237,7 @@ class ManualBillingService:
 
     def to_dataframe(self, records: list) -> pd.DataFrame:
         if not records:
-            return pd.DataFrame(columns=["FECHA", "NOMBRE", "DOCUMENTO", "PROCESO", "CANTIDAD"])
+            return pd.DataFrame(columns=["FECHA", "NOMBRE", "DOCUMENTO", "PROCESO", "CANTIDAD", "OBSERVACION"])
         rows = [
             {
                 "FECHA": r.fecha,
@@ -250,6 +245,7 @@ class ManualBillingService:
                 "DOCUMENTO": r.documento,
                 "PROCESO": r.proceso,
                 "CANTIDAD": r.cantidad,
+                "OBSERVACION": r.observacion,
             }
             for r in records
         ]

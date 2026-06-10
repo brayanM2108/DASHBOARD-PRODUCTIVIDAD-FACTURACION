@@ -1,5 +1,6 @@
 from fastapi import Depends
 
+from ...repositories.administrative_process_repository import AdministrativeProcessRepository
 from ...repositories.user_repository import UserRepository
 from ...repositories.parquet_repository import ParquetRepository
 
@@ -8,12 +9,14 @@ from ...services.billing_electronic_service import ElectronicBillingService
 from ...services.productivity_service import ProductivityService
 from ...services.legalizations_service import LegalizationsService
 from ...services.manual_billing_service import ManualBillingService
+from ...services.rips_service import RipsService
 
 from .repository_deps import (
     get_user_repository,
     get_legalizations_repository,
     get_electronic_billing_repository,
     get_administrative_process_repository,
+    get_rips_repository,
 )
 
 
