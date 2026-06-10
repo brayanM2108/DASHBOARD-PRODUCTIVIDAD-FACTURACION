@@ -19,17 +19,17 @@ DEFAULT_PERSISTED_DATA_DIR = PROJECT_ROOT / "backend" / "persisted_data"
 PERSISTED_DATA_DIR = Path(get_env_var("PERSISTED_DATA_DIR", str(DEFAULT_PERSISTED_DATA_DIR)))
 PERSISTED_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-FACTURADORES_FILE = "FACTURADORES.xlsx"
+FACTURADORES_FILE = str(PROJECT_ROOT / "backend" / "FACTURADORES.xlsx")
 FACTURADORES_SHEET = 0
 PROCESOS_SHEET_URL = get_env_var("PROCESOS_SHEET_URL", "")
 
 FILES = {
-    "PPL": str(PERSISTED_DATA_DIR / "df_ppl.parquet"),
-    "Convenios": str(PERSISTED_DATA_DIR / "df_convenios.parquet"),
+    "Legalizaciones": str(PERSISTED_DATA_DIR / "legalizations.parquet"),
     "Facturacion": str(PERSISTED_DATA_DIR / "df_facturacion.parquet"),
     "Facturadores": str(PERSISTED_DATA_DIR / "df_facturadores.parquet"),
     "FacturacionElectronica": str(PERSISTED_DATA_DIR / "df_fact_elec.parquet"),
     "ArchivoProcesos": str(PERSISTED_DATA_DIR / "df_procesos.parquet"),
+    "Rips": str(PERSISTED_DATA_DIR / "df_rips.parquet"),
 }
 
 VALID_STATES_LEGALIZATIONS = ["ACTIVA"]
@@ -40,6 +40,7 @@ COLUMN_MARKERS = {
     "facturacion": "NRO_LEGALIACION",
     "facturacion_electronica": "IDENTIFICACION",
     "procesos": "PROCESO",
+    "rips": "ESTADO_COMPLETITUD",
 }
 
 COLUMN_NAMES = {
@@ -57,13 +58,21 @@ COLUMN_NAMES_BILLING = {
 }
 
 COLUMN_NAMES_LEGALIZATIONS = {
-    "usuario": ["USUARIO", "USUARIO FACTURÃ“", "USUARIO FACTURO", "USUARIO FACTUR", "USUARIO_FACTURO"],
+    "usuario": ["USUARIO"],
     "fecha": ["FECHA_REAL"],
     "estado": "ESTADO",
     "convenio": "CONVENIO",
 }
 
-PPL_NAME = "Patrimonio Autonomo Fondo AtenciÃ³n Salud PPL 2024"
+COLUMN_NAMES_RIPS = {
+    "usuario": ["USUARIO_QUE_COMPLETA_RIPS"],
+    "fecha": ["FECHA_COMPLETADO_RIPS"],
+    "estado": "ESTADO_COMPLETITUD",
+}
+
+VALID_STATES_RIPS = ["COMPLETO"]
+
+PPL_NAME = "Patrimonio Autonomo Fondo Atención Salud PPL 2024"
 
 NAMES_AGREEMENTS = {
     "PPL": PPL_NAME,

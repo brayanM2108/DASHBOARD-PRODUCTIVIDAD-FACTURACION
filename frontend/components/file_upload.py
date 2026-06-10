@@ -14,6 +14,7 @@ from backend.app.etl.loaders import (
 )
 from backend.app.etl.transformers import process_electronic_billing_data
 from backend.app.services.legalizations_service import process_legalizations
+from backend.app.services.rips_service import process_rips
 from frontend.components.components import show_error_message, show_success_message, show_warning_message
 
 
@@ -31,6 +32,9 @@ def render_file_upload_section():
 
     with st.expander("🧾 Cargar Facturación Electrónica", expanded=False):
         render_facturacion_electronica_upload()
+
+    with st.expander("📄 Cargar RIPS", expanded=False):
+        render_rips_upload()
 
     with st.expander("👥 Actualizar Facturadores", expanded=False):
         render_facturadores_reload()
@@ -59,6 +63,9 @@ def render_clear_data_section():
 
         if st.button("🗑️ Limpiar Fact. Electrónica", key="btn_clear_fact_elec", width = "stretch"):
             clear_data_type(["electronic_billing_df"], ["FacturacionElectronica"], "Facturación Electrónica")
+
+        if st.button("🗑️ Limpiar RIPS", key="btn_clear_rips", width="stretch"):
+            clear_data_type(["rips_df"], ["Rips"], "RIPS")
 
     st.divider()
 
@@ -104,12 +111,13 @@ def clear_all_data():
         'billers_df',
         'electronic_billing_df',
         'administrative_processes_df',
+        'rips_df',
     ]
     for key in keys_to_clear:
         if key in st.session_state:
             st.session_state[key] = None
 
-    files_to_delete = ["Legalizaciones", "Facturacion", "FacturacionElectronica", "ArchivoProcesos"]
+    files_to_delete = ["Legalizaciones", "Facturacion", "FacturacionElectronica", "ArchivoProcesos", "Rips"]
     for file_key in files_to_delete:
         if file_key in FILES and os.path.exists(FILES[file_key]):
             try:
@@ -235,6 +243,67 @@ def render_facturacion_electronica_upload():
                 _clear_streamlit_caches()
 
                 show_success_message(f"Facturación electrónica procesada: {count_fact_elec:,} registros.")
+                st.rerun()
+
+            except Exception as e:
+                show_error_message(f"Error inesperado: {e}")
+                import traceback
+                st.code(traceback.format_exc())
+
+
+def render_rips_upload():
+    uploaded_file = st.file_uploader(
+        "Selecciona archivo RIPS",
+        type=['csv', 'xlsx'],
+        key="upload_rips"
+    )
+
+    if uploaded_file:
+        st.write(f"📁 Archivo seleccionado: {uploaded_file.name}")
+
+    if uploaded_file and st.button("Procesar RIPS", key="btn_process_rips"):
+        with st.spinner("Procesando RIPS..."):
+            try:
+                st.write("🔄 Paso 1: Cargando archivo...")
+                df = load_uploaded_dataframe(uploaded_file, COLUMN_MARKERS["rips"])
+
+                if df is None:
+                    show_error_message("Error al cargar el archivo. No se encontró la columna marcadora 'ESTADO_COMPLETITUD'.")
+                    return
+
+                st.success(f"✅ Paso 1 completado: {len(df):,} filas, {len(df.columns)} columnas")
+                st.write("Columnas detectadas:", list(df.columns[:15]))
+
+                if "ESTADO_COMPLETITUD" in df.columns:
+                    estados = df["ESTADO_COMPLETITUD"].astype(str).unique().tolist()
+                    st.write(f"Valores únicos de ESTADO_COMPLETITUD: {estados[:10]}")
+
+                st.write("🔄 Paso 2: Validando estructura...")
+                result = process_rips(df, st.session_state.get('billers_df'))
+
+                if result.get("error"):
+                    show_error_message(f"Error en validación: {result['error']}")
+                    return
+
+                st.success("✅ Paso 2 completado: Validación exitosa")
+
+                rips_df = result.get("rips_df")
+                total_rows = int(result.get("total_rows") or (len(rips_df) if rips_df is not None else 0))
+
+                if total_rows == 0:
+                    show_warning_message("No se encontraron registros después del procesamiento.")
+                    return
+
+                if "USUARIO_QUE_COMPLETA_RIPS" in rips_df.columns:
+                    usuarios = rips_df["USUARIO_QUE_COMPLETA_RIPS"].dropna().unique().tolist()
+                    st.write(f"Usuarios en datos procesados (muestra): {usuarios[:10]}")
+
+                st.write("🔄 Paso 3: Guardando datos...")
+                st.session_state['rips_df'] = rips_df
+                save_all_persisted_frames({"rips_df": rips_df})
+                _clear_streamlit_caches()
+
+                show_success_message(f"✅ RIPS procesados: {total_rows:,} registros.")
                 st.rerun()
 
             except Exception as e:

@@ -13,6 +13,7 @@ DATASET_TO_FILE_KEY = {
     "billers_df": "Facturadores",
     "electronic_billing_df": "FacturacionElectronica",
     "administrative_processes_df": "ArchivoProcesos",
+    "rips_df": "Rips",
 }
 
 

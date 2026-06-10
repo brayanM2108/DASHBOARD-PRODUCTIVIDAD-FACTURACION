@@ -7,8 +7,9 @@ from .api.routes.auth_router import router as auth_router
 from .api.routes.billing_router import router as billing_router
 from .api.routes.legalization_router import router as legalization_router
 from .api.routes.administrative_process_router import router as administrative_process_router
-from app.core.exceptions.base import AppException
-from app.core.exceptions.handlers import (
+from .api.routes.rips_router import router as rips_router
+from .core.exceptions.base import AppException
+from .core.exceptions.handlers import (
     app_exception_handler
 )
 
@@ -43,6 +44,11 @@ app.include_router(
 
 app.include_router(
     administrative_process_router,
+    prefix=settings.API_PREFIX
+)
+
+app.include_router(
+    rips_router,
     prefix=settings.API_PREFIX
 )
 

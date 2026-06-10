@@ -40,6 +40,16 @@ def get_legalizations_service(
     )
 
 
+def get_rips_service(
+    repository: ParquetRepository = Depends(get_rips_repository),
+    productivity_service: ProductivityService = Depends(get_productivity_service),
+) -> RipsService:
+    return RipsService(
+        repository=repository,
+        productivity_service=productivity_service,
+    )
+
+
 def get_electronic_billing_service(
     repository: ParquetRepository = Depends(get_electronic_billing_repository),
     productivity_service: ProductivityService = Depends(get_productivity_service),

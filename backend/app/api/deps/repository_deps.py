@@ -22,3 +22,7 @@ def get_legalizations_repository() -> ParquetRepository:
 
 def get_electronic_billing_repository() -> ParquetRepository:
     return ParquetRepository(FILES["FacturacionElectronica"])
+
+
+def get_rips_repository() -> ParquetRepository:
+    return ParquetRepository(FILES["Rips"])
