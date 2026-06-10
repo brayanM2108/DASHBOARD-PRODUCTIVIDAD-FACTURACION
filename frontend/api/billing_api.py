@@ -1,7 +1,7 @@
 from typing import Any
 
 import requests
-from api.auth_api import build_api_url
+from frontend.api.api_client import build_api_url
 from frontend.exceptions import ApiException, UnauthorizedException, NotFoundException
 
 
