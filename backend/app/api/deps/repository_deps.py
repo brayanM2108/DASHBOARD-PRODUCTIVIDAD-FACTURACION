@@ -26,3 +26,7 @@ def get_electronic_billing_repository() -> ParquetRepository:
 
 def get_rips_repository() -> ParquetRepository:
     return ParquetRepository(FILES["Rips"])
+
+
+def get_radicacion_repository() -> ParquetRepository:
+    return ParquetRepository(FILES["FacturacionElectronica"])

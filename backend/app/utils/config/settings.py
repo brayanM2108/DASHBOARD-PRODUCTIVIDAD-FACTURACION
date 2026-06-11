@@ -70,7 +70,18 @@ COLUMN_NAMES_RIPS = {
     "estado": "ESTADO_COMPLETITUD",
 }
 
+COLUMN_NAMES_RADICACION = {
+    "usuario": ["USUARIO"],
+    "fecha": ["FECHA FACTURA"],
+    "factura": ["FACTURA"],
+    "fecha_radicado": ["FECHA RADICADO"],
+    "radicado_panacea": ["RADICADO PANACEA"],
+    "radicado_externo": ["RADICADO EXTERNO"],
+}
+
 VALID_STATES_RIPS = ["COMPLETO"]
+
+RADICACION_DAYS_THRESHOLD = 2
 
 PPL_NAME = "Patrimonio Autonomo Fondo Atención Salud PPL 2024"
 
@@ -118,8 +129,9 @@ NAMES_AGREEMENTS = {
 
 PAGE_CONFIG = {
     "page_title": "Dashboard de Productividad",
-    "page_icon": "ðŸ“Š",
+    "page_icon": "📊",
     "layout": "wide",
+    "initial_sidebar_state": "expanded",
 }
 
 PLOT_CONFIG = {

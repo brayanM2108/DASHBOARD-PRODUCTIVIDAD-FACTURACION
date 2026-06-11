@@ -10,6 +10,7 @@ from ...services.productivity_service import ProductivityService
 from ...services.legalizations_service import LegalizationsService
 from ...services.manual_billing_service import ManualBillingService
 from ...services.rips_service import RipsService
+from ...services.radicacion_service import RadicacionService
 
 from .repository_deps import (
     get_user_repository,
@@ -17,6 +18,7 @@ from .repository_deps import (
     get_electronic_billing_repository,
     get_administrative_process_repository,
     get_rips_repository,
+    get_radicacion_repository,
 )
 
 
@@ -64,3 +66,9 @@ def get_manual_billing_service(
     repository: AdministrativeProcessRepository = Depends(get_administrative_process_repository),
 ) -> ManualBillingService:
     return ManualBillingService(repository)
+
+
+def get_radicacion_service(
+    repository: ParquetRepository = Depends(get_radicacion_repository),
+) -> RadicacionService:
+    return RadicacionService(repository=repository)
