@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
-from jose import jwt
+from jose import jwt, JWTError
 import hashlib
 
 from .config import settings
@@ -23,7 +23,41 @@ def verify_password(password: str, hashed: str) -> bool:
     return pwd_context.verify(normalized, hashed)
 
 
-def create_access_token(subject: str) -> str:
+def create_access_token(subject: str, username: str | None = None, role: str | None = None) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
-    payload = {"sub": subject, "exp": expire}
+    payload = {"sub": subject, "exp": expire, "type": "access"}
+    if username:
+        payload["username"] = username
+    if role:
+        payload["role"] = role
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+
+
+def create_refresh_token(subject: str, username: str | None = None, role: str | None = None) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(days=settings.JWT_REFRESH_EXPIRE_DAYS)
+    payload = {"sub": subject, "exp": expire, "type": "refresh"}
+    if username:
+        payload["username"] = username
+    if role:
+        payload["role"] = role
+    return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+
+
+def decode_token(token: str) -> dict | None:
+    try:
+        payload = jwt.decode(
+            token,
+            settings.JWT_SECRET,
+            algorithms=[settings.JWT_ALGORITHM],
+        )
+        return payload
+    except JWTError:
+        return None
+
+
+def hash_refresh_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def verify_refresh_token(token: str, hashed: str) -> bool:
+    return hash_refresh_token(token) == hashed
