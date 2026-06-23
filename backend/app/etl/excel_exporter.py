@@ -546,23 +546,25 @@ def _add_legalizations_charts_sheet(wb: Workbook, report: dict) -> None:
 
     if ppl_user is not None and not ppl_user.empty:
         ppl_user_col = ppl_user.columns[0]
-        fig = _safe_bar(ppl_user, ppl_user_col, "COUNT", "PPL por Usuario")
+        fig = _safe_bar(ppl_user, ppl_user_col, "REGISTROS", "PPL por Usuario")
         if fig:
             _insert_chart(ws, fig, "A1")
 
-    fig = _safe_line(ppl_date, "DATE", "COUNT", "Tendencia PPL")
-    if fig:
-        _insert_chart(ws, fig, "A30")
+    if ppl_date is not None and not ppl_date.empty:
+        fig = _safe_line(ppl_date, "DATE", "REGISTROS", "Tendencia PPL")
+        if fig:
+            _insert_chart(ws, fig, "A30")
 
     if agr_user is not None and not agr_user.empty:
         agr_user_col = agr_user.columns[0]
-        fig = _safe_bar(agr_user, agr_user_col, "COUNT", "Convenios por Usuario")
+        fig = _safe_bar(agr_user, agr_user_col, "REGISTROS", "Convenios por Usuario")
         if fig:
             _insert_chart(ws, fig, "M1")
 
-    fig = _safe_line(agr_date, "DATE", "COUNT", "Tendencia Convenios")
-    if fig:
-        _insert_chart(ws, fig, "M30")
+    if agr_date is not None and not agr_date.empty:
+        fig = _safe_line(agr_date, "DATE", "REGISTROS", "Tendencia Convenios")
+        if fig:
+            _insert_chart(ws, fig, "M30")
 
 def _add_processes_charts_sheet(wb: Workbook, report: dict) -> None:
     ws = wb.create_sheet("Graficos")
@@ -587,3 +589,563 @@ def _add_processes_charts_sheet(wb: Workbook, report: dict) -> None:
     fig_line = _safe_line(time_trend, "FECHA", "CANTIDAD", "Tendencia Temporal")
     if fig_line:
         _insert_chart(ws, fig_line, "A30")
+
+
+# ---------------------------------------------------------------------------
+# RIPS exporter
+# ---------------------------------------------------------------------------
+
+def export_rips_report(report: dict, period_label: str = "") -> bytes:
+    """
+    Generate RIPS Excel report.
+
+    Args:
+        report: Output of report_service.build_rips_report()
+        period_label: Human-readable period string.
+
+    Returns:
+        bytes of the .xlsx file.
+    """
+    wb = Workbook()
+
+    # --- Resumen Ejecutivo ---
+    ws_summary = wb.active
+    ws_summary.title = "Resumen Ejecutivo"
+    _add_cover_info(ws_summary, "RIPS", period_label)
+
+    summary = report["executive_summary"]
+    _write_section_title(ws_summary, 5, "Indicadores Clave")
+    _write_kpi_row(ws_summary, 6, "Total RIPS completados", summary["total"])
+    _write_kpi_row(ws_summary, 7, "Promedio diario", f"{summary['daily_average']:.1f}")
+
+    row = _write_variation_rows(ws_summary, 8, "Total RIPS", summary["variation"])
+    _write_variation_rows(ws_summary, row, "Promedio diario", summary["variation_daily_avg"])
+
+    _write_section_title(ws_summary, row + 3, "Top 5 Usuarios")
+    _write_dataframe(ws_summary, summary.get("top5_by_user"), start_row=row + 4)
+    _auto_column_widths(ws_summary)
+
+    # --- Por Usuario ---
+    ws_users = wb.create_sheet("Por Usuario")
+    _write_section_title(ws_users, 1, "Productividad por Usuario")
+    _write_dataframe(ws_users, report.get("by_user"), start_row=3)
+    _auto_column_widths(ws_users)
+
+    # --- Tendencia Diaria ---
+    ws_dates = wb.create_sheet("Tendencia Diaria")
+    _write_section_title(ws_dates, 1, "Tendencia Diaria")
+    _write_dataframe(ws_dates, report.get("by_date"), start_row=3)
+    _auto_column_widths(ws_dates)
+
+    # --- Gráficos ---
+    ws_charts = wb.create_sheet("Graficos")
+    by_user = report.get("by_user")
+    by_date = report.get("by_date")
+
+    if by_user is not None and not by_user.empty:
+        user_col = by_user.columns[0]
+        fig_user = _safe_bar(by_user, user_col, "REGISTROS", "RIPS por Usuario")
+        if fig_user:
+            _insert_chart(ws_charts, fig_user, "A1")
+
+    fig_date = _safe_line(by_date, "DATE", "REGISTROS", "Tendencia RIPS")
+    if fig_date:
+        _insert_chart(ws_charts, fig_date, "A30")
+
+    return _to_bytes(wb)
+
+
+def export_rips_report_cached(report: dict, period_label: str = "") -> bytes:
+    """Cached wrapper for RIPS Excel export."""
+    return export_rips_report(report, period_label=period_label)
+
+
+# ---------------------------------------------------------------------------
+# Radicación exporter
+# ---------------------------------------------------------------------------
+
+def export_radicacion_report(report: dict, period_label: str = "") -> bytes:
+    """
+    Generate Radicación Excel report.
+
+    Args:
+        report: Output of report_service.build_radicacion_report()
+        period_label: Human-readable period string.
+
+    Returns:
+        bytes of the .xlsx file.
+    """
+    wb = Workbook()
+
+    # --- Resumen Ejecutivo ---
+    ws_summary = wb.active
+    ws_summary.title = "Resumen Ejecutivo"
+    _add_cover_info(ws_summary, "Radicación", period_label)
+
+    summary = report["executive_summary"]
+    _write_section_title(ws_summary, 5, "Indicadores Clave")
+    _write_kpi_row(ws_summary, 6, "Total facturas", summary["total"])
+    _write_kpi_row(ws_summary, 7, "Radicadas", summary["radicadas"])
+    _write_kpi_row(ws_summary, 8, "Vencidas", summary["vencidas"])
+    _write_kpi_row(ws_summary, 9, "% Radicado", f"{summary['pct_radicado']:.1f}%")
+    _write_kpi_row(ws_summary, 10, "% Vencidas", f"{summary['pct_vencidas']:.1f}%")
+
+    row = _write_variation_rows(ws_summary, 11, "Total facturas", summary["variation"])
+    _write_variation_rows(ws_summary, row, "Facturas vencidas", summary["variation_vencidas"])
+    _auto_column_widths(ws_summary)
+
+    # --- Facturas Vencidas ---
+    ws_vencidas = wb.create_sheet("Facturas Vencidas")
+    _write_section_title(ws_vencidas, 1, "Facturas Vencidas (sin radicar > 2 días)")
+    _write_dataframe(ws_vencidas, report.get("vencidas_df"), start_row=3)
+    _auto_column_widths(ws_vencidas)
+
+    # --- Por Usuario ---
+    ws_users = wb.create_sheet("Por Usuario")
+    _write_section_title(ws_users, 1, "Radicación por Usuario")
+    _write_dataframe(ws_users, report.get("by_user"), start_row=3)
+    _auto_column_widths(ws_users)
+
+    # --- Gráficos ---
+    ws_charts = wb.create_sheet("Graficos")
+    by_user = report.get("by_user")
+
+    if by_user is not None and not by_user.empty:
+        fig_total = _safe_bar(by_user, "USUARIO", "TOTAL", "Total Facturas por Usuario")
+        if fig_total:
+            _insert_chart(ws_charts, fig_total, "A1")
+
+        fig_vencidas = _safe_bar(by_user, "USUARIO", "VENCIDAS", "Facturas Vencidas por Usuario")
+        if fig_vencidas:
+            _insert_chart(ws_charts, fig_vencidas, "M1")
+
+        fig_pie = _safe_pie(by_user, "USUARIO", "VENCIDAS", "Distribución de Vencidas")
+        if fig_pie:
+            _insert_chart(ws_charts, fig_pie, "A30")
+
+    return _to_bytes(wb)
+
+
+def export_radicacion_report_cached(report: dict, period_label: str = "") -> bytes:
+    """Cached wrapper for radicación Excel export."""
+    return export_radicacion_report(report, period_label=period_label)
+
+
+# ---------------------------------------------------------------------------
+# General report exporter (combines all modules)
+# ---------------------------------------------------------------------------
+
+def export_general_report(reports: dict, period_label: str = "") -> bytes:
+    """
+    Generate a combined general Excel report with all modules.
+
+    Args:
+        reports: Output of report_service.build_general_report()
+                 Keys: billing, legalizations, rips, radicacion, processes
+        period_label: Human-readable period string.
+
+    Returns:
+        bytes of the .xlsx file.
+    """
+    wb = Workbook()
+
+    # --- Portada ---
+    ws_cover = wb.active
+    ws_cover.title = "Portada"
+    ws_cover.row_dimensions[1].height = 40
+    title_cell = ws_cover.cell(row=1, column=1, value="Informe General de Productividad")
+    title_cell.font = _ACCENT_FONT
+    title_cell.fill = _ACCENT_FILL
+    title_cell.alignment = Alignment(horizontal="left", vertical="center")
+
+    ws_cover.cell(row=3, column=1, value="Período:").font = _LABEL_FONT
+    ws_cover.cell(row=3, column=2, value=period_label).font = _VALUE_FONT
+    ws_cover.cell(row=4, column=1, value="Fecha de generación:").font = _LABEL_FONT
+    ws_cover.cell(row=4, column=2, value=str(date.today())).font = _VALUE_FONT
+
+    ws_cover.cell(row=6, column=1, value="Módulos incluidos:").font = _SECTION_FONT
+    modules_list = []
+    if reports.get("billing"):
+        modules_list.append("Facturación Electrónica")
+    if reports.get("legalizations"):
+        modules_list.append("Legalizaciones")
+    if reports.get("rips"):
+        modules_list.append("RIPS")
+    if reports.get("radicacion"):
+        modules_list.append("Radicación")
+    if reports.get("processes"):
+        modules_list.append("Procesos Administrativos")
+
+    for i, mod in enumerate(modules_list, start=7):
+        ws_cover.cell(row=i, column=1, value=f"• {mod}").font = _VALUE_FONT
+
+    _auto_column_widths(ws_cover)
+
+    # --- Resumen Ejecutivo Global ---
+    ws_global = wb.create_sheet("Resumen Global")
+    _write_section_title(ws_global, 1, "Resumen Ejecutivo Global")
+
+    row = 3
+    total_all = 0
+
+    billing_rep = reports.get("billing")
+    if billing_rep:
+        es = billing_rep.get("executive_summary", {})
+        _write_kpi_row(ws_global, row, "Facturación — Total", es.get("total", 0))
+        _write_kpi_row(ws_global, row + 1, "Facturación — Valor", f"${es.get('total', 0):,.0f}")
+        row += 3
+        total_all += es.get("total", 0)
+
+    leg_rep = reports.get("legalizations")
+    if leg_rep:
+        es = leg_rep.get("executive_summary", {})
+        _write_kpi_row(ws_global, row, "Legalizaciones — Total", es.get("total", 0))
+        _write_kpi_row(ws_global, row + 1, "Legalizaciones — PPL", es.get("ppl_total", 0))
+        _write_kpi_row(ws_global, row + 2, "Legalizaciones — Convenios", es.get("agreements_total", 0))
+        row += 4
+        total_all += es.get("total", 0)
+
+    rips_rep = reports.get("rips")
+    if rips_rep:
+        es = rips_rep.get("executive_summary", {})
+        _write_kpi_row(ws_global, row, "RIPS — Total", es.get("total", 0))
+        row += 2
+        total_all += es.get("total", 0)
+
+    rad_rep = reports.get("radicacion")
+    if rad_rep:
+        es = rad_rep.get("executive_summary", {})
+        _write_kpi_row(ws_global, row, "Radicación — Total", es.get("total", 0))
+        _write_kpi_row(ws_global, row + 1, "Radicación — Vencidas", es.get("vencidas", 0))
+        _write_kpi_row(ws_global, row + 2, "Radicación — % Radicado", f"{es.get('pct_radicado', 0):.1f}%")
+        row += 4
+        total_all += es.get("total", 0)
+
+    proc_rep = reports.get("processes")
+    if proc_rep:
+        es = proc_rep.get("executive_summary", {})
+        _write_kpi_row(ws_global, row, "Procesos — Total registros", es.get("total_records", 0))
+        _write_kpi_row(ws_global, row + 1, "Procesos — Total cantidad", f"{es.get('total_quantity', 0):,.0f}")
+        row += 3
+        total_all += es.get("total_records", 0)
+
+    _write_kpi_row(ws_global, row, "TOTAL GENERAL", total_all)
+    _auto_column_widths(ws_global)
+
+    # --- Facturación sheets ---
+    if billing_rep:
+        _add_billing_sheets_to_general(wb, billing_rep, period_label)
+        _add_billing_charts_to_general(wb, billing_rep)
+
+    # --- Legalizaciones sheets ---
+    if leg_rep:
+        _add_legalizations_sheets(wb, leg_rep, period_label)
+        _add_legalizations_charts_to_general(wb, leg_rep)
+
+    # --- RIPS sheets ---
+    if rips_rep:
+        _add_rips_sheets(wb, rips_rep, period_label)
+        _add_rips_charts_to_general(wb, rips_rep)
+
+    # --- Radicación sheets ---
+    if rad_rep:
+        _add_radicacion_sheets(wb, rad_rep, period_label)
+        _add_radicacion_charts_to_general(wb, rad_rep)
+
+    # --- Procesos sheets ---
+    if proc_rep:
+        _add_processes_sheets(wb, proc_rep, period_label)
+        _add_processes_charts_to_general(wb, proc_rep)
+
+    return _to_bytes(wb)
+
+
+def export_general_report_cached(reports: dict, period_label: str = "") -> bytes:
+    """Cached wrapper for general Excel export."""
+    return export_general_report(reports, period_label=period_label)
+
+
+# ---------------------------------------------------------------------------
+# Helper: add legalizations sheets to existing workbook
+# ---------------------------------------------------------------------------
+
+def _add_legalizations_sheets(wb: Workbook, report: dict, period_label: str) -> None:
+    """Unified legalizations sheet with all data."""
+    summary = report["executive_summary"]
+
+    ws = wb.create_sheet("Legalizaciones")
+    _add_cover_info(ws, "Legalizaciones", period_label)
+
+    # --- KPIs Section ---
+    _write_section_title(ws, 5, "Indicadores Globales")
+    _write_kpi_row(ws, 6, "Total global (PPL + Convenios)", summary["total"])
+    _write_kpi_row(ws, 7, "Total PPL", summary["ppl_total"])
+    _write_kpi_row(ws, 8, "Total Convenios", summary["agreements_total"])
+    row = _write_variation_rows(ws, 9, "Total global", summary["variation"])
+
+    # --- PPL Section ---
+    _write_section_title(ws, row + 2, "PPL — Top 5 Usuarios")
+    row = _write_dataframe(ws, report["ppl"].get("top5_by_user"), start_row=row + 3)
+
+    _write_section_title(ws, row, "PPL — Productividad por Usuario")
+    row = _write_dataframe(ws, report["ppl"].get("by_user"), start_row=row + 1)
+
+    _write_section_title(ws, row, "PPL — Tendencia Diaria")
+    row = _write_dataframe(ws, report["ppl"].get("by_date"), start_row=row + 1)
+
+    # --- Convenios Section ---
+    _write_section_title(ws, row + 2, "Convenios — Top 5 Usuarios")
+    row = _write_dataframe(ws, report["agreements"].get("top5_by_user"), start_row=row + 3)
+
+    _write_section_title(ws, row, "Convenios — Productividad por Usuario")
+    row = _write_dataframe(ws, report["agreements"].get("by_user"), start_row=row + 1)
+
+    _write_section_title(ws, row, "Convenios — Tendencia Diaria")
+    _write_dataframe(ws, report["agreements"].get("by_date"), start_row=row + 1)
+
+    _auto_column_widths(ws)
+
+
+# ---------------------------------------------------------------------------
+# Helper: add RIPS sheets to existing workbook
+# ---------------------------------------------------------------------------
+
+def _add_rips_sheets(wb: Workbook, report: dict, period_label: str) -> None:
+    summary = report["executive_summary"]
+
+    ws = wb.create_sheet("RIPS")
+    _add_cover_info(ws, "RIPS", period_label)
+
+    _write_section_title(ws, 5, "Indicadores Clave")
+    _write_kpi_row(ws, 6, "Total RIPS", summary["total"])
+    _write_kpi_row(ws, 7, "Promedio diario", f"{summary['daily_average']:.1f}")
+    row = _write_variation_rows(ws, 8, "Total RIPS", summary["variation"])
+
+    _write_section_title(ws, row + 2, "Top 5 Usuarios")
+    row = _write_dataframe(ws, summary.get("top5_by_user"), start_row=row + 3)
+
+    _write_section_title(ws, row, "Productividad por Usuario")
+    row = _write_dataframe(ws, report.get("by_user"), start_row=row + 1)
+
+    _write_section_title(ws, row, "Tendencia Diaria")
+    _write_dataframe(ws, report.get("by_date"), start_row=row + 1)
+
+    _auto_column_widths(ws)
+
+
+# ---------------------------------------------------------------------------
+# Helper: add Radicación sheets to existing workbook
+# ---------------------------------------------------------------------------
+
+def _add_radicacion_sheets(wb: Workbook, report: dict, period_label: str) -> None:
+    summary = report["executive_summary"]
+
+    ws = wb.create_sheet("Radicación")
+    _add_cover_info(ws, "Radicación", period_label)
+
+    _write_section_title(ws, 5, "Indicadores Clave")
+    _write_kpi_row(ws, 6, "Total facturas", summary["total"])
+    _write_kpi_row(ws, 7, "Radicadas", summary["radicadas"])
+    _write_kpi_row(ws, 8, "Vencidas", summary["vencidas"])
+    _write_kpi_row(ws, 9, "% Radicado", f"{summary['pct_radicado']:.1f}%")
+    row = _write_variation_rows(ws, 10, "Total facturas", summary["variation"])
+    _write_variation_rows(ws, row, "Facturas vencidas", summary["variation_vencidas"])
+
+    _write_section_title(ws, row + 2, "Facturas Vencidas")
+    row = _write_dataframe(ws, report.get("vencidas_df"), start_row=row + 3)
+
+    _write_section_title(ws, row, "Radicación por Usuario")
+    _write_dataframe(ws, report.get("by_user"), start_row=row + 1)
+
+    _auto_column_widths(ws)
+
+
+# ---------------------------------------------------------------------------
+# Helper: add Processes sheets to existing workbook
+# ---------------------------------------------------------------------------
+
+def _add_processes_sheets(wb: Workbook, report: dict, period_label: str) -> None:
+    summary = report["executive_summary"]
+
+    ws = wb.create_sheet("Procesos Administrativos")
+    _add_cover_info(ws, "Procesos Administrativos", period_label)
+
+    _write_section_title(ws, 5, "Indicadores Clave")
+    _write_kpi_row(ws, 6, "Total registros", summary["total_records"])
+    _write_kpi_row(ws, 7, "Total cantidad", f"{summary['total_quantity']:,.0f}")
+    _write_kpi_row(ws, 8, "Personas activas", summary["unique_people"])
+    row = _write_variation_rows(ws, 9, "Total registros", summary["variation_records"])
+    _write_variation_rows(ws, row, "Total cantidad", summary["variation_quantity"])
+
+    _write_section_title(ws, row + 2, "Por Persona")
+    row = _write_dataframe(ws, report.get("by_person"), start_row=row + 3)
+
+    _write_section_title(ws, row, "Por Proceso")
+    row = _write_dataframe(ws, report.get("by_process"), start_row=row + 1)
+
+    _write_section_title(ws, row, "Tendencia Diaria")
+    time_trend = report.get("chart_datasets", {}).get("time_trend")
+    _write_dataframe(ws, time_trend, start_row=row + 1)
+
+    _auto_column_widths(ws)
+
+
+# ---------------------------------------------------------------------------
+# Helper: add billing sheets to existing workbook
+# ---------------------------------------------------------------------------
+
+def _add_billing_sheets_to_general(wb: Workbook, report: dict, period_label: str) -> None:
+    summary = report["executive_summary"]
+
+    ws = wb.create_sheet("Facturación Electrónica")
+    _add_cover_info(ws, "Facturación Electrónica", period_label)
+
+    _write_section_title(ws, 5, "Indicadores Clave de Productividad")
+    _write_kpi_row(ws, 6, "Total procesado", summary["total"])
+    _write_kpi_row(ws, 7, "Promedio diario", f"{summary['daily_average']:.1f}")
+    row = _write_variation_rows(ws, 8, "Total procesado", summary["variation"])
+    _write_variation_rows(ws, row, "Promedio diario", summary["variation_daily_avg"])
+
+    _write_section_title(ws, row + 2, "Top 5 Usuarios")
+    row = _write_dataframe(ws, summary.get("top5_by_user"), start_row=row + 3)
+
+    _write_section_title(ws, row, "Productividad por Usuario")
+    row = _write_dataframe(ws, report.get("by_user"), start_row=row + 1)
+
+    _write_section_title(ws, row, "Tendencia Diaria (Valor)")
+    row = _write_dataframe(ws, report.get("by_date"), start_row=row + 1)
+
+    _write_section_title(ws, row, "Tendencia Diaria (Registros)")
+    _write_dataframe(ws, report.get("by_date_records"), start_row=row + 1)
+
+    _auto_column_widths(ws)
+
+
+# ---------------------------------------------------------------------------
+# Chart helpers for general report
+# ---------------------------------------------------------------------------
+
+def _add_billing_charts_to_general(wb: Workbook, report: dict) -> None:
+    """Add billing charts to general report."""
+    ws = wb.create_sheet("Facturación - Gráficos")
+
+    by_user = report.get("by_user")
+    by_date = report.get("by_date")
+    by_user_records = report.get("by_user_records")
+
+    if by_user is not None and not by_user.empty:
+        user_col = by_user.columns[0]
+        fig_user = _safe_bar(by_user, user_col, "COUNT", "Facturación - Valor por Usuario")
+        if fig_user:
+            _insert_chart(ws, fig_user, "A1")
+
+    if by_user_records is not None and not by_user_records.empty:
+        user_col_records = by_user_records.columns[0]
+        fig_records = _safe_bar(by_user_records, user_col_records, "REGISTROS", "Facturación - Registros por Usuario")
+        if fig_records:
+            _insert_chart(ws, fig_records, "M1")
+
+    if by_date is not None and not by_date.empty:
+        fig_date = _safe_line(by_date, "DATE", "COUNT", "Facturación - Tendencia de Valor")
+        if fig_date:
+            _insert_chart(ws, fig_date, "A30")
+
+
+def _add_legalizations_charts_to_general(wb: Workbook, report: dict) -> None:
+    """Add legalizations charts to general report."""
+    ws = wb.create_sheet("Legalizaciones - Gráficos")
+
+    ppl_user = report.get("ppl", {}).get("by_user")
+    ppl_date = report.get("ppl", {}).get("by_date")
+    agr_user = report.get("agreements", {}).get("by_user")
+    agr_date = report.get("agreements", {}).get("by_date")
+
+    if ppl_user is not None and not ppl_user.empty:
+        ppl_user_col = ppl_user.columns[0]
+        fig = _safe_bar(ppl_user, ppl_user_col, "REGISTROS", "PPL por Usuario")
+        if fig:
+            _insert_chart(ws, fig, "A1")
+
+    if ppl_date is not None and not ppl_date.empty:
+        fig = _safe_line(ppl_date, "DATE", "REGISTROS", "Tendencia PPL")
+        if fig:
+            _insert_chart(ws, fig, "A30")
+
+    if agr_user is not None and not agr_user.empty:
+        agr_user_col = agr_user.columns[0]
+        fig = _safe_bar(agr_user, agr_user_col, "REGISTROS", "Convenios por Usuario")
+        if fig:
+            _insert_chart(ws, fig, "M1")
+
+    if agr_date is not None and not agr_date.empty:
+        fig = _safe_line(agr_date, "DATE", "REGISTROS", "Tendencia Convenios")
+        if fig:
+            _insert_chart(ws, fig, "M30")
+
+
+def _add_rips_charts_to_general(wb: Workbook, report: dict) -> None:
+    """Add RIPS charts to general report."""
+    ws = wb.create_sheet("RIPS - Gráficos")
+
+    by_user = report.get("by_user")
+    by_date = report.get("by_date")
+
+    if by_user is not None and not by_user.empty:
+        user_col = by_user.columns[0]
+        fig_user = _safe_bar(by_user, user_col, "REGISTROS", "RIPS por Usuario")
+        if fig_user:
+            _insert_chart(ws, fig_user, "A1")
+
+    if by_date is not None and not by_date.empty:
+        fig_date = _safe_line(by_date, "DATE", "REGISTROS", "Tendencia RIPS")
+        if fig_date:
+            _insert_chart(ws, fig_date, "A30")
+
+
+def _add_radicacion_charts_to_general(wb: Workbook, report: dict) -> None:
+    """Add Radicación charts to general report."""
+    ws = wb.create_sheet("Radicación - Gráficos")
+
+    by_user = report.get("by_user")
+
+    if by_user is not None and not by_user.empty:
+        fig_total = _safe_bar(by_user, "USUARIO", "TOTAL", "Total Facturas por Usuario")
+        if fig_total:
+            _insert_chart(ws, fig_total, "A1")
+
+        fig_vencidas = _safe_bar(by_user, "USUARIO", "VENCIDAS", "Facturas Vencidas por Usuario")
+        if fig_vencidas:
+            _insert_chart(ws, fig_vencidas, "M1")
+
+        fig_pie = _safe_pie(by_user, "USUARIO", "VENCIDAS", "Distribución de Vencidas")
+        if fig_pie:
+            _insert_chart(ws, fig_pie, "A30")
+
+
+def _add_processes_charts_to_general(wb: Workbook, report: dict) -> None:
+    """Add Processes charts to general report."""
+    ws = wb.create_sheet("Procesos - Gráficos")
+
+    charts = report.get("chart_datasets", {})
+    bar_by_person = charts.get("bar_by_person")
+    pie_distribution = charts.get("pie_distribution")
+    pie_mode = charts.get("pie_mode")
+    time_trend = charts.get("time_trend")
+
+    if bar_by_person is not None and not bar_by_person.empty:
+        fig_bar = _safe_bar(bar_by_person, "NOMBRE", "CANTIDAD", "Cantidad por Persona")
+        if fig_bar:
+            _insert_chart(ws, fig_bar, "A1")
+
+    if pie_distribution is not None and not pie_distribution.empty:
+        if pie_mode == "person":
+            fig_pie = _safe_pie(pie_distribution, "NOMBRE", "CANTIDAD", "Distribución por Persona")
+        else:
+            fig_pie = _safe_pie(pie_distribution, "PROCESO", "CANTIDAD", "Distribución por Proceso")
+        if fig_pie:
+            _insert_chart(ws, fig_pie, "M1")
+
+    if time_trend is not None and not time_trend.empty:
+        fig_line = _safe_line(time_trend, "FECHA", "CANTIDAD", "Tendencia Temporal")
+        if fig_line:
+            _insert_chart(ws, fig_line, "A30")

@@ -15,7 +15,7 @@ RIPS_REQUIRED_COLUMNS = ("ESTADO_COMPLETITUD",)
 
 
 def validate_rips_dataframe(df: pd.DataFrame):
-    user_col = find_first_column_variant(df, COLUMN_NAMES_RIPS["usuario"])
+    user_col = find_first_column_variant(df, COLUMN_NAMES_RIPS["documento"])
     date_col = find_first_column_variant(df, COLUMN_NAMES_RIPS["fecha"])
     if user_col is None or date_col is None:
         return False, MSG_MISSING_USER_OR_DATE

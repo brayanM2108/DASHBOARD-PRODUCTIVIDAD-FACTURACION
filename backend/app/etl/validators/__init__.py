@@ -35,3 +35,7 @@ from .legalizations_validator import (
     find_first_column_variant,
     validate_columns_presence,
 )
+
+from .rips_validator import (
+    validate_rips_dataframe,
+)

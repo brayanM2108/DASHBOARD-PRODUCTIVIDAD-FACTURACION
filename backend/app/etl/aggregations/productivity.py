@@ -65,3 +65,41 @@ def top_by_count(by_user_df: pd.DataFrame | None, limit: int = 5) -> pd.DataFram
         return None
     return by_user_df.sort_values("COUNT", ascending=False).head(limit).reset_index(drop=True)
 
+
+def aggregate_by_eps(
+    df: pd.DataFrame,
+    eps_column: str = "EPS",
+    value_column: str = "VALOR TERCERO",
+) -> pd.DataFrame | None:
+    if df is None or df.empty or eps_column not in df.columns:
+        return None
+    if value_column not in df.columns:
+        return df.groupby(eps_column).size().reset_index(name="REGISTROS")
+    return (
+        df.groupby(eps_column, as_index=False)
+        .agg(
+            REGISTROS=(eps_column, "size"),
+            VALOR_TERCERO=(value_column, "sum"),
+        )
+        .sort_values("VALOR_TERCERO", ascending=False)
+    )
+
+
+def aggregate_by_convenio(
+    df: pd.DataFrame,
+    convenio_column: str = "CONVENIO",
+    value_column: str = "VALOR TERCERO",
+) -> pd.DataFrame | None:
+    if df is None or df.empty or convenio_column not in df.columns:
+        return None
+    if value_column not in df.columns:
+        return df.groupby(convenio_column).size().reset_index(name="REGISTROS")
+    return (
+        df.groupby(convenio_column, as_index=False)
+        .agg(
+            REGISTROS=(convenio_column, "size"),
+            VALOR_TERCERO=(value_column, "sum"),
+        )
+        .sort_values("VALOR_TERCERO", ascending=False)
+    )
+

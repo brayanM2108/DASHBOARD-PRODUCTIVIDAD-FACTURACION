@@ -11,16 +11,31 @@ COMPARISON_MODE_NAME = "NOMBRE"
 def merge_with_billers(
     df: pd.DataFrame,
     billers_df: pd.DataFrame,
-    user_column: str = "USUARIO",
+    document_column: str = "NUMERO_IDENTIFICACION",
 ) -> pd.DataFrame:
-    """Left-merge dataframe with billers master info."""
+    """
+    Left-merge dataframe with billers master info using DOCUMENTO as key.
+    Adds NOMBRE_USUARIO (official name) and TIPO_USUARIO (ROL) from billers.
+    """
     if df is None or df.empty or billers_df is None or billers_df.empty:
         return df
 
-    if user_column not in df.columns or "USUARIO" not in billers_df.columns:
+    if document_column not in df.columns or "DOCUMENTO" not in billers_df.columns:
         return df
 
-    return pd.merge(df, billers_df, left_on=user_column, right_on="USUARIO", how="left")
+    result = df.merge(
+        billers_df[["DOCUMENTO", "NOMBRE", "ROL"]].rename(
+            columns={
+                "DOCUMENTO": document_column,
+                "NOMBRE": "NOMBRE_USUARIO",
+                "ROL": "TIPO_USUARIO",
+            }
+        ),
+        on=document_column,
+        how="left",
+    )
+
+    return result
 
 
 def merge_billing_with_electronic_billing(
@@ -68,30 +83,47 @@ def merge_billing_with_electronic_billing(
 def filter_by_billers(
     df: pd.DataFrame,
     billers_df: pd.DataFrame,
-    user_column: str,
+    document_column: str,
     comparison_mode: str = COMPARISON_MODE_DOCUMENT,
 ) -> pd.DataFrame:
-    """Keep only rows where user value exists in billers master comparison column."""
+    """
+    Keep only rows where document value exists in billers master.
+    Also adds NOMBRE_USUARIO (official name) from billers for display.
+    """
     if df is None or df.empty:
         return df
     if billers_df is None or billers_df.empty:
         return df
-    if user_column is None or user_column not in df.columns:
+    if document_column is None or document_column not in df.columns:
         return df
     if comparison_mode not in billers_df.columns:
         return df
 
-    valid_values = (
+    valid_values = set(
         billers_df[comparison_mode]
         .dropna()
         .astype(str)
         .str.strip()
         .str.upper()
         .unique()
-        .tolist()
     )
 
     result_df = df.copy()
-    result_df["_user_norm"] = normalize_text_series(result_df[user_column])
-    filtered_df = result_df[result_df["_user_norm"].isin(valid_values)].copy()
-    return filtered_df.drop(columns=["_user_norm"])
+    result_df["_doc_norm"] = normalize_text_series(result_df[document_column])
+    filtered_df = result_df[result_df["_doc_norm"].isin(valid_values)].copy()
+
+    billers_map = (
+        billers_df[["DOCUMENTO", "NOMBRE"]]
+        .dropna(subset=["DOCUMENTO"])
+        .copy()
+    )
+    billers_map["_doc_key"] = normalize_text_series(billers_map["DOCUMENTO"])
+    billers_map = billers_map.drop_duplicates(subset=["_doc_key"])
+
+    filtered_df = filtered_df.merge(
+        billers_map[["_doc_key", "NOMBRE"]].rename(columns={"NOMBRE": "NOMBRE_USUARIO"}),
+        on="_doc_key",
+        how="left",
+    ).drop(columns=["_doc_norm", "_doc_key"])
+
+    return filtered_df

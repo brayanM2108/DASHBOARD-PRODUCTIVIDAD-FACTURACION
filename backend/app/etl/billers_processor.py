@@ -75,30 +75,151 @@ def find_biller_info(user, billers_df):
     return matches.iloc[0].to_dict()
 
 
-def filter_by_billers_master(df, billers_df, user_column="USUARIO", biller_name_column="NOMBRE"):
+def resolve_document_to_name(billers_df, document_value, doc_column="DOCUMENTO", name_column="NOMBRE"):
+    """Look up the name for a given document number in the billers master."""
+    if billers_df is None or billers_df.empty:
+        return str(document_value)
+    if doc_column not in billers_df.columns or name_column not in billers_df.columns:
+        return str(document_value)
+
+    doc_str = str(document_value).strip()
+    match = billers_df[billers_df[doc_column].astype(str).str.strip() == doc_str]
+    if match.empty:
+        return str(document_value)
+    return str(match.iloc[0][name_column])
+
+
+def filter_by_billers_document(
+    df, billers_df,
+    source_column="USUARIO_QUE_COMPLETA_RIPS",
+    biller_doc_column="DOCUMENTO",
+    biller_name_column="NOMBRE",
+):
     """
-    Filter a DataFrame to only include rows where the user column matches
-    a biller name in the billers master.
+    Filter a DataFrame to only include rows where source_column matches
+    the DOCUMENTO column in the billers master. Enriches with
+    NOMBRE_USUARIO (official name) and TIPO_USUARIO (ROL).
+    Falls back to source_column value when no biller name is available.
     """
     if df is None or df.empty:
         return df
-    if billers_df is None or billers_df.empty:
-        return df
-    if user_column not in df.columns or biller_name_column not in billers_df.columns:
-        return df
 
-    valid_names = set(
-        billers_df[biller_name_column]
+    if billers_df is None or billers_df.empty:
+        result_df = df.copy()
+        result_df["NOMBRE_USUARIO"] = result_df[source_column] if source_column in result_df.columns else None
+        result_df["TIPO_USUARIO"] = None
+        return result_df
+
+    if source_column not in df.columns or biller_doc_column not in billers_df.columns:
+        result_df = df.copy()
+        result_df["NOMBRE_USUARIO"] = result_df[source_column] if source_column in result_df.columns else None
+        result_df["TIPO_USUARIO"] = None
+        return result_df
+
+    valid_docs = set(
+        billers_df[biller_doc_column]
         .dropna()
         .astype(str)
-        .map(normalize_text)
+        .str.strip()
+        .str.upper()
         .unique()
     )
 
-    if not valid_names:
-        return df
+    if not valid_docs:
+        result_df = df.copy()
+        result_df["NOMBRE_USUARIO"] = result_df[source_column] if source_column in result_df.columns else None
+        result_df["TIPO_USUARIO"] = None
+        return result_df
 
     result_df = df.copy()
-    result_df[user_column] = result_df[user_column].astype(str).map(normalize_text)
+    result_df["_doc_norm"] = result_df[source_column].astype(str).str.strip().str.upper()
+    result_df = result_df[result_df["_doc_norm"].isin(valid_docs)].copy()
 
-    return result_df[result_df[user_column].isin(valid_names)].copy()
+    billers_map = (
+        billers_df[[biller_doc_column, biller_name_column, "ROL"]]
+        .dropna(subset=[biller_doc_column])
+        .copy()
+    )
+    billers_map["_doc_key"] = billers_map[biller_doc_column].astype(str).str.strip().str.upper()
+    billers_map = billers_map.drop_duplicates(subset=["_doc_key"])
+
+    result_df = result_df.merge(
+        billers_map[["_doc_key", biller_name_column, "ROL"]].rename(
+            columns={biller_name_column: "NOMBRE_USUARIO", "ROL": "TIPO_USUARIO"}
+        ),
+        left_on="_doc_norm",
+        right_on="_doc_key",
+        how="left",
+    ).drop(columns=["_doc_norm", "_doc_key"])
+
+    if source_column in result_df.columns:
+        result_df["NOMBRE_USUARIO"] = result_df["NOMBRE_USUARIO"].fillna(
+            result_df[source_column].astype(str)
+        )
+
+    return result_df
+
+
+def filter_by_billers_master(
+    df, billers_df,
+    document_column="USUARIO_QUE_LEGALIZO",
+    biller_doc_column="DOCUMENTO",
+    biller_name_column="NOMBRE",
+):
+    """
+    Filter a DataFrame to only include rows where document_column matches
+    billers_df[biller_doc_column]. Enriches with NOMBRE_USUARIO (official
+    name) and TIPO_USUARIO (ROL) from billers master.
+    """
+    if df is None or df.empty:
+        return df
+
+    if billers_df is None or billers_df.empty:
+        result_df = df.copy()
+        result_df["NOMBRE_USUARIO"] = None
+        result_df["TIPO_USUARIO"] = None
+        return result_df
+
+    if document_column not in df.columns or biller_doc_column not in billers_df.columns:
+        result_df = df.copy()
+        result_df["NOMBRE_USUARIO"] = None
+        result_df["TIPO_USUARIO"] = None
+        return result_df
+
+    valid_docs = set(
+        billers_df[biller_doc_column]
+        .dropna()
+        .astype(str)
+        .str.strip()
+        .str.upper()
+        .unique()
+    )
+
+    if not valid_docs:
+        result_df = df.copy()
+        result_df["NOMBRE_USUARIO"] = None
+        result_df["TIPO_USUARIO"] = None
+        return result_df
+
+    result_df = df.copy()
+    result_df["_doc_norm"] = result_df[document_column].astype(str).str.strip().str.upper()
+    result_df = result_df[result_df["_doc_norm"].isin(valid_docs)].copy()
+
+    billers_map = (
+        billers_df[[biller_doc_column, biller_name_column, "ROL"]]
+        .dropna(subset=[biller_doc_column])
+        .copy()
+    )
+    billers_map["_doc_key"] = billers_map[biller_doc_column].astype(str).str.strip().str.upper()
+    billers_map = billers_map.drop_duplicates(subset=["_doc_key"])
+
+    result_df = result_df.merge(
+        billers_map[["_doc_key", biller_name_column, "ROL"]].rename(
+            columns={biller_name_column: "NOMBRE_USUARIO", "ROL": "TIPO_USUARIO"}
+        ),
+        left_on="_doc_norm",
+        right_on="_doc_key",
+        how="left",
+    ).drop(columns=["_doc_norm", "_doc_key"])
+
+    return result_df
