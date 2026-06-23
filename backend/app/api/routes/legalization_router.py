@@ -6,7 +6,8 @@ from fastapi import APIRouter, Query, Depends
 
 from ..deps import (
     get_legalizations_service,
-    require_roles
+    get_current_biller_name,
+    get_current_user,
 )
 from ..schemas.legalizations import LegalizationMetricsResponse
 
@@ -28,11 +29,12 @@ def get_metrics(
         service: LegalizationsService = Depends(
             get_legalizations_service
         ),
-
-        current_user=Depends(
-            require_roles("ADMIN", "SUPERVISOR")
-        )
+        current_user=Depends(get_current_user),
+        forced_user=Depends(get_current_biller_name),
 ):
+    if forced_user is not None:
+        selected_users = [forced_user]
+
     return service.get_metrics(
         start_date=start_date,
         end_date=end_date,

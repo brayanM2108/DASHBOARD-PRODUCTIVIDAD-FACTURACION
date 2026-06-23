@@ -3,6 +3,8 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 
 from ...core.config import settings
+from ...etl.billers_processor import resolve_document_to_name
+from ...etl.loaders import load_billers_master_cached
 from ...repositories.user_repository import UserRepository
 from .repository_deps import get_user_repository
 
@@ -38,6 +40,11 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuario no encontrado",
         )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuario desactivado. Contacta al administrador.",
+        )
     return user
 
 
@@ -50,3 +57,19 @@ def require_roles(*allowed_roles):
             )
         return current_user
     return role_checker
+
+
+def get_current_biller_name(
+    current_user=Depends(get_current_user),
+):
+    if current_user.role in ("ADMIN", "SUPERVISOR"):
+        return None
+
+    if not current_user.document:
+        return "__no_document__"
+
+    billers_df = load_billers_master_cached()
+    name = resolve_document_to_name(billers_df, current_user.document)
+    if name == str(current_user.document):
+        return "__no_match__"
+    return name

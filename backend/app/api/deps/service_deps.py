@@ -11,6 +11,8 @@ from ...services.legalizations_service import LegalizationsService
 from ...services.manual_billing_service import ManualBillingService
 from ...services.rips_service import RipsService
 from ...services.radicacion_service import RadicacionService
+from ...services.home_service import HomeService
+from ...services.users_service import UsersService
 
 from .repository_deps import (
     get_user_repository,
@@ -72,3 +74,27 @@ def get_radicacion_service(
     repository: ParquetRepository = Depends(get_radicacion_repository),
 ) -> RadicacionService:
     return RadicacionService(repository=repository)
+
+
+def get_home_service(
+    legalizations_repo: ParquetRepository = Depends(get_legalizations_repository),
+    billing_repo: ParquetRepository = Depends(get_electronic_billing_repository),
+    rips_repo: ParquetRepository = Depends(get_rips_repository),
+    processes_repo: AdministrativeProcessRepository = Depends(get_administrative_process_repository),
+    user_repo: UserRepository = Depends(get_user_repository),
+    productivity_service: ProductivityService = Depends(get_productivity_service),
+) -> HomeService:
+    return HomeService(
+        legalizations_repo=legalizations_repo,
+        billing_repo=billing_repo,
+        rips_repo=rips_repo,
+        processes_repo=processes_repo,
+        user_repo=user_repo,
+        productivity_service=productivity_service,
+    )
+
+
+def get_users_service(
+    user_repo: UserRepository = Depends(get_user_repository),
+) -> UsersService:
+    return UsersService(user_repo)

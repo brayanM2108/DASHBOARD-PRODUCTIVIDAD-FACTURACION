@@ -206,6 +206,7 @@ class ManualBillingService:
         fecha_desde: Optional[date] = None,
         fecha_hasta: Optional[date] = None,
         proceso: Optional[str] = None,
+        usuario_id: Optional[int] = None,
         skip: int = 0,
         limit: int = 1000,
     ):
@@ -213,6 +214,7 @@ class ManualBillingService:
             fecha_desde=fecha_desde,
             fecha_hasta=fecha_hasta,
             proceso=proceso,
+            usuario_id=usuario_id,
             skip=skip,
             limit=limit,
         )
@@ -222,11 +224,13 @@ class ManualBillingService:
         fecha_desde: Optional[date] = None,
         fecha_hasta: Optional[date] = None,
         proceso: Optional[str] = None,
+        usuario_id: Optional[int] = None,
     ) -> int:
         return self._repository.count(
             fecha_desde=fecha_desde,
             fecha_hasta=fecha_hasta,
             proceso=proceso,
+            usuario_id=usuario_id,
         )
 
     def update_process(self, process_id: int, **kwargs):

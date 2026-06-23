@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Optional
+from typing import Optional, Union
 
 from sqlalchemy.orm import Session
 
@@ -32,6 +32,7 @@ class AdministrativeProcessRepository:
         fecha_desde: Optional[date] = None,
         fecha_hasta: Optional[date] = None,
         proceso: Optional[str] = None,
+        usuario_id: Optional[int] = None,
         skip: int = 0,
         limit: int = 1000,
     ) -> list[AdministrativeProcess]:
@@ -43,6 +44,8 @@ class AdministrativeProcessRepository:
             query = query.filter(AdministrativeProcess.fecha <= fecha_hasta)
         if proceso:
             query = query.filter(AdministrativeProcess.proceso == proceso)
+        if usuario_id is not None:
+            query = query.filter(AdministrativeProcess.usuario_id == usuario_id)
 
         return query.offset(skip).limit(limit).all()
 
@@ -51,6 +54,7 @@ class AdministrativeProcessRepository:
         fecha_desde: Optional[date] = None,
         fecha_hasta: Optional[date] = None,
         proceso: Optional[str] = None,
+        usuario_id: Optional[int] = None,
     ) -> int:
         query = self.db.query(AdministrativeProcess)
 
@@ -60,6 +64,8 @@ class AdministrativeProcessRepository:
             query = query.filter(AdministrativeProcess.fecha <= fecha_hasta)
         if proceso:
             query = query.filter(AdministrativeProcess.proceso == proceso)
+        if usuario_id is not None:
+            query = query.filter(AdministrativeProcess.usuario_id == usuario_id)
 
         return query.count()
 

@@ -4,11 +4,13 @@ from pydantic import BaseModel, Field
 class LegalizationByUserRecord(BaseModel):
     USUARIO: str | None = None
     REGISTROS: int | None = None
+    TIEMPO_HORAS: float | None = None
 
 
 class LegalizationByDateRecord(BaseModel):
     DATE: str | None = None
     REGISTROS: int | None = None
+    TIEMPO_HORAS: float | None = None
 
 class ProductivityMetricsResponse(BaseModel):
 
@@ -25,6 +27,10 @@ class ProductivityMetricsResponse(BaseModel):
     )
 
     category: str | None = None
+
+    tiempo_total_horas: float = 0.0
+
+    tiempo_promedio_diario_horas: float = 0.0
 
 
 class LegalizationMetricsResponse(BaseModel):

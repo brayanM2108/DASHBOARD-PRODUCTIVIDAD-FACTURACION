@@ -211,19 +211,34 @@ def build_legalizations_report(
         "variation_daily_avg": _build_variation_block(global_daily_avg, previous_daily_avg),
     }
 
+    # Convert lists to DataFrames (calculate_record_productivity returns lists)
+    ppl_by_user = ppl_metrics["by_user"]
+    if isinstance(ppl_by_user, list):
+        ppl_by_user = pd.DataFrame(ppl_by_user) if ppl_by_user else None
+    ppl_by_date = ppl_metrics["by_date"]
+    if isinstance(ppl_by_date, list):
+        ppl_by_date = pd.DataFrame(ppl_by_date) if ppl_by_date else None
+
+    agr_by_user = agreements_metrics["by_user"]
+    if isinstance(agr_by_user, list):
+        agr_by_user = pd.DataFrame(agr_by_user) if agr_by_user else None
+    agr_by_date = agreements_metrics["by_date"]
+    if isinstance(agr_by_date, list):
+        agr_by_date = pd.DataFrame(agr_by_date) if agr_by_date else None
+
     return {
         "executive_summary": executive_summary,
         "ppl": {
             "metrics": ppl_metrics,
-            "by_user": ppl_metrics["by_user"],
-            "by_date": ppl_metrics["by_date"],
-            "top5_by_user": _top5_by_user(ppl_metrics["by_user"]),
+            "by_user": ppl_by_user,
+            "by_date": ppl_by_date,
+            "top5_by_user": _top5_by_user(ppl_by_user),
         },
         "agreements": {
             "metrics": agreements_metrics,
-            "by_user": agreements_metrics["by_user"],
-            "by_date": agreements_metrics["by_date"],
-            "top5_by_user": _top5_by_user(agreements_metrics["by_user"]),
+            "by_user": agr_by_user,
+            "by_date": agr_by_date,
+            "top5_by_user": _top5_by_user(agr_by_user),
         },
     }
 
@@ -309,3 +324,171 @@ def build_processes_report_cached(
         selected_person=selected_person,
         selected_process=selected_process,
     )
+
+
+# ---------------------------------------------------------------------------
+# RIPS report
+# ---------------------------------------------------------------------------
+
+def build_rips_report(
+        df_current: pd.DataFrame,
+        df_previous: pd.DataFrame | None = None,
+) -> dict:
+    """
+    Build RIPS report data.
+
+    Args:
+        df_current: Filtered RIPS dataframe for the current period.
+        df_previous: Filtered RIPS dataframe for the previous period (optional).
+
+    Returns:
+        dict with keys: executive_summary, by_user, by_date
+    """
+    metrics_current = ProductivityService.calculate_record_productivity(
+        df_current,
+        user_column_variants=["NOMBRE_USUARIO"],
+        date_column_variants=["FECHA_COMPLETADO_RIPS"],
+        category="RIPS",
+    )
+    metrics_previous = ProductivityService.calculate_record_productivity(
+        df_previous,
+        user_column_variants=["NOMBRE_USUARIO"],
+        date_column_variants=["FECHA_COMPLETADO_RIPS"],
+        category="RIPS",
+    ) if df_previous is not None else None
+
+    previous_total = metrics_previous["total"] if metrics_previous else 0
+    previous_daily_avg = metrics_previous["daily_average"] if metrics_previous else 0
+
+    by_user_df = metrics_current.get("by_user")
+    if by_user_df and isinstance(by_user_df, list):
+        by_user_df = pd.DataFrame(by_user_df) if by_user_df else None
+
+    executive_summary = {
+        "total": metrics_current["total"],
+        "daily_average": metrics_current["daily_average"],
+        "top5_by_user": _top5_by_user(by_user_df),
+        "variation": _build_variation_block(metrics_current["total"], previous_total),
+        "variation_daily_avg": _build_variation_block(
+            metrics_current["daily_average"], previous_daily_avg
+        ),
+    }
+
+    by_date_df = metrics_current.get("by_date")
+    if by_date_df and isinstance(by_date_df, list):
+        by_date_df = pd.DataFrame(by_date_df) if by_date_df else None
+
+    return {
+        "executive_summary": executive_summary,
+        "by_user": by_user_df,
+        "by_date": by_date_df,
+    }
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def build_rips_report_cached(
+        df_current: pd.DataFrame,
+        df_previous: pd.DataFrame | None = None,
+) -> dict:
+    """Cached wrapper for RIPS report generation."""
+    return build_rips_report(df_current=df_current, df_previous=df_previous)
+
+
+# ---------------------------------------------------------------------------
+# Radicación report
+# ---------------------------------------------------------------------------
+
+def build_radicacion_report(
+        df_current: pd.DataFrame,
+        df_previous: pd.DataFrame | None = None,
+) -> dict:
+    """
+    Build Radicación report data.
+
+    Args:
+        df_current: Filtered radicacion dataframe (from prepare_radicacion_df).
+        df_previous: Filtered radicacion dataframe for previous period (optional).
+
+    Returns:
+        dict with keys: executive_summary, vencidas_df, by_user
+    """
+    total = len(df_current) if df_current is not None else 0
+    vencidas = int(df_current["VENCIDA"].sum()) if df_current is not None and "VENCIDA" in df_current.columns else 0
+    radicadas = total - vencidas
+    pct_radicado = round((radicadas / total * 100), 1) if total > 0 else 0.0
+    pct_vencidas = round((vencidas / total * 100), 1) if total > 0 else 0.0
+
+    prev_total = len(df_previous) if df_previous is not None else 0
+    prev_vencidas = int(df_previous["VENCIDA"].sum()) if df_previous is not None and "VENCIDA" in df_previous.columns else 0
+
+    # Vencidas dataframe
+    vencidas_df = None
+    if df_current is not None and "VENCIDA" in df_current.columns:
+        vencidas_only = df_current[df_current["VENCIDA"] == True].copy()
+        if not vencidas_only.empty:
+            cols_to_show = ["FACTURA", "USUARIO", "FECHA FACTURA", "DIAS_SIN_RADICAR", "RADICADO"]
+            available_cols = [c for c in cols_to_show if c in vencidas_only.columns]
+            vencidas_df = vencidas_only[available_cols].head(100)
+
+    # By user aggregation
+    by_user_df = None
+    if df_current is not None and "USUARIO" in df_current.columns:
+        user_agg = df_current.groupby("USUARIO").agg(
+            TOTAL=("VENCIDA", "count"),
+            VENCIDAS=("VENCIDA", "sum"),
+        ).reset_index()
+        user_agg["VENCIDAS"] = user_agg["VENCIDAS"].astype(int)
+        user_agg["RADICADAS"] = user_agg["TOTAL"] - user_agg["VENCIDAS"]
+        user_agg = user_agg.sort_values("VENCIDAS", ascending=False)
+        by_user_df = user_agg
+
+    executive_summary = {
+        "total": total,
+        "radicadas": radicadas,
+        "vencidas": vencidas,
+        "pct_radicado": pct_radicado,
+        "pct_vencidas": pct_vencidas,
+        "variation": _build_variation_block(total, prev_total),
+        "variation_vencidas": _build_variation_block(vencidas, prev_vencidas),
+    }
+
+    return {
+        "executive_summary": executive_summary,
+        "vencidas_df": vencidas_df,
+        "by_user": by_user_df,
+    }
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def build_radicacion_report_cached(
+        df_current: pd.DataFrame,
+        df_previous: pd.DataFrame | None = None,
+) -> dict:
+    """Cached wrapper for radicación report generation."""
+    return build_radicacion_report(df_current=df_current, df_previous=df_previous)
+
+
+# ---------------------------------------------------------------------------
+# General report (combines all modules)
+# ---------------------------------------------------------------------------
+
+def build_general_report(
+        billing_report: dict | None = None,
+        legalizations_report: dict | None = None,
+        rips_report: dict | None = None,
+        radicacion_report: dict | None = None,
+        processes_report: dict | None = None,
+) -> dict:
+    """
+    Combine all module reports into a single general report dict.
+
+    Returns:
+        dict with keys: billing, legalizations, rips, radicacion, processes
+    """
+    return {
+        "billing": billing_report,
+        "legalizations": legalizations_report,
+        "rips": rips_report,
+        "radicacion": radicacion_report,
+        "processes": processes_report,
+    }

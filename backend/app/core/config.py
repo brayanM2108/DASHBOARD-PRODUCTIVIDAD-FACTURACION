@@ -14,8 +14,11 @@ class Settings(BaseSettings):
     JWT_SECRET: str = Field(...)
     JWT_ALGORITHM: str = Field(...)
     JWT_EXPIRE_MINUTES: int = Field(...)
+    JWT_REFRESH_EXPIRE_DAYS: int = Field(default=7)
 
-    LEGALIZATIONS_PARQUET: str = Field(...)
+    LEGALIZATIONS_PARQUET: str = Field(
+        default=str(Path(__file__).resolve().parents[2] / "persisted_data" / "legalizations.parquet")
+    )
     ELECTRONIC_BILLING_PARQUET: str = Field(...)
 
     model_config = SettingsConfigDict(

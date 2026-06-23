@@ -50,6 +50,7 @@ COLUMN_NAMES = {
     "convenio": "CONVENIO",
 }
 
+
 COLUMN_NAMES_BILLING = {
     "usuario": ["USUARIO"],
     "fecha": ["FECHA FACTURA"],
@@ -62,14 +63,14 @@ COLUMN_NAMES_LEGALIZATIONS = {
     "fecha": ["FECHA_REAL"],
     "estado": "ESTADO",
     "convenio": "CONVENIO",
+    "documento": "USUARIO_QUE_LEGALIZO"
 }
 
 COLUMN_NAMES_RIPS = {
-    "usuario": ["USUARIO_QUE_COMPLETA_RIPS"],
+    "documento": ["USUARIO_QUE_COMPLETA_RIPS"],
     "fecha": ["FECHA_COMPLETADO_RIPS"],
     "estado": "ESTADO_COMPLETITUD",
 }
-
 COLUMN_NAMES_RADICACION = {
     "usuario": ["USUARIO"],
     "fecha": ["FECHA FACTURA"],
@@ -82,6 +83,11 @@ COLUMN_NAMES_RADICACION = {
 VALID_STATES_RIPS = ["COMPLETO"]
 
 RADICACION_DAYS_THRESHOLD = 2
+
+SECONDS_PER_RECORD_RIPS = 45
+SECONDS_PER_RECORD_LEGALIZATIONS = 90
+SECONDS_PER_RECORD_BILLING = 45
+WORKING_HOURS_PER_DAY = 8.5
 
 PPL_NAME = "Patrimonio Autonomo Fondo Atención Salud PPL 2024"
 

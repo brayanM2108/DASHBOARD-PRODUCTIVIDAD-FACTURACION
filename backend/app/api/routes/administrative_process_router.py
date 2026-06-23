@@ -2,12 +2,18 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from ...services.manual_billing_service import ManualBillingService
 from ..schemas.administrative_process import ProcessCreate, ProcessUpdate, ProcessOut, ProcessSummary
-from ..deps import get_current_user, get_manual_billing_service
+from ..deps import get_current_user, get_current_biller_name, get_manual_billing_service
 
 router = APIRouter(
     prefix="/administrative-processes",
     tags=["administrative-processes"],
 )
+
+
+def _resolve_usuario_id(current_user, forced_user):
+    if forced_user is not None:
+        return current_user.id
+    return None
 
 
 @router.post("/", response_model=ProcessOut, status_code=status.HTTP_201_CREATED)
@@ -30,8 +36,10 @@ def create_process(
 def get_filter_options(
     service: ManualBillingService = Depends(get_manual_billing_service),
     current_user=Depends(get_current_user),
+    forced_user=Depends(get_current_biller_name),
 ):
-    records = service.list_processes()
+    usuario_id = _resolve_usuario_id(current_user, forced_user)
+    records = service.list_processes(usuario_id=usuario_id)
     df = service.to_dataframe(records) if records else None
     if df is None or df.empty:
         return {"people": [], "processes": []}
@@ -48,11 +56,14 @@ def get_summary(
     proceso=None,
     service: ManualBillingService = Depends(get_manual_billing_service),
     current_user=Depends(get_current_user),
+    forced_user=Depends(get_current_biller_name),
 ):
+    usuario_id = _resolve_usuario_id(current_user, forced_user)
     records = service.list_processes(
         fecha_desde=fecha_desde,
         fecha_hasta=fecha_hasta,
         proceso=proceso,
+        usuario_id=usuario_id,
     )
     df = service.to_dataframe(records)
     if df.empty:
@@ -83,11 +94,14 @@ def list_processes(
     limit: int = 1000,
     service: ManualBillingService = Depends(get_manual_billing_service),
     current_user=Depends(get_current_user),
+    forced_user=Depends(get_current_biller_name),
 ):
+    usuario_id = _resolve_usuario_id(current_user, forced_user)
     return service.list_processes(
         fecha_desde=fecha_desde,
         fecha_hasta=fecha_hasta,
         proceso=proceso,
+        usuario_id=usuario_id,
         skip=skip,
         limit=limit,
     )

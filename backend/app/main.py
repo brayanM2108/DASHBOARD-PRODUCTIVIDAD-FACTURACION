@@ -8,6 +8,10 @@ from .api.routes.billing_router import router as billing_router
 from .api.routes.legalization_router import router as legalization_router
 from .api.routes.administrative_process_router import router as administrative_process_router
 from .api.routes.rips_router import router as rips_router
+from .api.routes.radicacion_router import router as radicacion_router
+from .api.routes.home_router import router as home_router
+from .api.routes.export_router import router as export_router
+from .api.routes.users_router import router as users_router
 from .core.exceptions.base import AppException
 from .core.exceptions.handlers import (
     app_exception_handler
@@ -49,6 +53,26 @@ app.include_router(
 
 app.include_router(
     rips_router,
+    prefix=settings.API_PREFIX
+)
+
+app.include_router(
+    radicacion_router,
+    prefix=settings.API_PREFIX
+)
+
+app.include_router(
+    home_router,
+    prefix=settings.API_PREFIX
+)
+
+app.include_router(
+    export_router,
+    prefix=settings.API_PREFIX
+)
+
+app.include_router(
+    users_router,
     prefix=settings.API_PREFIX
 )
 

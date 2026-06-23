@@ -2,7 +2,7 @@ from datetime import date
 
 from fastapi import APIRouter, Query, Depends
 
-from ..deps import get_radicacion_service, require_roles
+from ..deps import get_radicacion_service, get_current_biller_name, get_current_user
 from ..schemas.radicacion import RadicacionMetricsResponse
 from ...services.radicacion_service import RadicacionService
 
@@ -18,8 +18,12 @@ def get_metrics(
     end_date: date | None = Query(default=None),
     selected_users: list[str] | None = Query(default=None),
     service: RadicacionService = Depends(get_radicacion_service),
-    current_user=Depends(require_roles("ADMIN", "SUPERVISOR")),
+    current_user=Depends(get_current_user),
+    forced_user=Depends(get_current_biller_name),
 ):
+    if forced_user is not None:
+        selected_users = [forced_user]
+
     return service.get_metrics(
         start_date=start_date,
         end_date=end_date,

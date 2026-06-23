@@ -3,11 +3,12 @@ from datetime import date
 import pandas as pd
 
 from ..core.exceptions.business import ValidationException
-from ..etl.billers_processor import filter_by_billers_document, resolve_document_to_name
+from ..etl.billers_processor import filter_by_billers_document
 from ..etl.filters.rips_filter import filter_rips
 from ..etl.transformers.rips_transformer import prepare_rips_dataframe
 from ..etl.validators.rips_validator import validate_rips_dataframe
 from ..repositories.parquet_repository import ParquetRepository
+from ..utils.config.settings import COLUMN_NAMES_RIPS, SECONDS_PER_RECORD_RIPS
 from .productivity_service import ProductivityService
 
 
@@ -30,20 +31,17 @@ def process_rips(df: pd.DataFrame, df_facturadores=None) -> dict:
             "rips_df": None,
         }
 
+    doc_col = COLUMN_NAMES_RIPS["documento"]
+    doc_col = doc_col[0] if isinstance(doc_col, list) else doc_col
+
     before = len(rips_df)
 
     rips_df = filter_by_billers_document(
         rips_df, df_facturadores,
-        source_column="USUARIO_QUE_COMPLETA_RIPS",
+        source_column=doc_col,
     )
 
     after = len(rips_df)
-
-    if after > 0 and df_facturadores is not None and not df_facturadores.empty:
-        resolve_fn = lambda doc: resolve_document_to_name(df_facturadores, doc)
-        rips_df["USUARIO_QUE_COMPLETA_RIPS"] = (
-            rips_df["USUARIO_QUE_COMPLETA_RIPS"].astype(str).map(resolve_fn)
-        )
 
     if after == 0 and before > 0:
         return {
@@ -96,7 +94,8 @@ class RipsService:
         )
         return self.productivity_service.calculate_record_productivity(
             filtered_df,
-            user_column_variants=["USUARIO_QUE_COMPLETA_RIPS"],
+            user_column_variants=["NOMBRE_USUARIO"],
             date_column_variants=["FECHA_COMPLETADO_RIPS"],
             category="RIPS",
+            seconds_per_record=SECONDS_PER_RECORD_RIPS,
         )

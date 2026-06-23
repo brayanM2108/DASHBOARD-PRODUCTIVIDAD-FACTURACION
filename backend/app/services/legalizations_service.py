@@ -13,6 +13,7 @@ from ..etl.transformers.legalizations_transformer import (
 )
 from ..etl.validators.legalizations_validator import validate_legalizations_dataframe
 from ..repositories.parquet_repository import ParquetRepository
+from ..utils.config.settings import COLUMN_NAMES_LEGALIZATIONS, SECONDS_PER_RECORD_LEGALIZATIONS
 from .productivity_service import ProductivityService
 
 
@@ -38,7 +39,10 @@ def process_legalizations(df: pd.DataFrame, df_facturadores=None) -> dict:
             "legalizations_df": None,
         }
 
-    legalizations_df = filter_by_billers_master(legalizations_df, df_facturadores)
+    legalizations_df = filter_by_billers_master(
+        legalizations_df, df_facturadores,
+        document_column=COLUMN_NAMES_LEGALIZATIONS["documento"],
+    )
 
     return {
         "error": None,
@@ -89,7 +93,10 @@ class LegalizationsService:
 
         from ..etl.loaders.billers_loader import load_billers_master
         billers_df = load_billers_master()
-        df = filter_by_billers_master(df, billers_df)
+        df = filter_by_billers_master(
+            df, billers_df,
+            document_column=COLUMN_NAMES_LEGALIZATIONS["documento"],
+        )
 
         return df
 
@@ -111,6 +118,7 @@ class LegalizationsService:
         return self.productivity_service.calculate_legalizations_productivity(
             filtered_df,
             category="PPL" if legalization_type == PPL_TYPE else "Convenios",
+            seconds_per_record=SECONDS_PER_RECORD_LEGALIZATIONS,
         )
 
     def get_metrics(
