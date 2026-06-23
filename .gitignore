@@ -36,3 +36,15 @@ Thumbs.db
 ~$*.xlsx
 ~$*.xls
 
+/backend/FACTURADORES.xlsx
+/frontend/.streamlit/secrets.toml
+/backend/persisted_data/df_convenios.parquet
+/backend/persisted_data/df_fact_elec.parquet
+/backend/persisted_data/df_ppl.parquet
+/backend/persisted_data/df_procesos.parquet
+/frontend/assets/LOGO_CLARO.svg
+/frontend/assets/LOGO_OSCURO.svg
+/.agents/
+/backend/persisted_data/legalizations.parquet
+/skills-lock.json
+/backend/persisted_data/df_rips.parquet

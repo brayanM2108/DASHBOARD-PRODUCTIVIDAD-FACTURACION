@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#FFFFFF"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round">
+
+    <!-- Documento -->
+    <path d="M7 2H14L19 7V20C19 21.1 18.1 22 17 22H7C5.9 22 5 21.1 5 20V4C5 2.9 5.9 2 7 2Z"/>
+
+    <!-- Esquina doblada -->
+    <path d="M14 2V7H19"/>
+
+    <!-- Líneas -->
+    <path d="M9 10H15"/>
+    <path d="M9 13H15"/>
+
+    <!-- Moneda -->
+    <circle cx="12" cy="18" r="2.5"/>
+
+    <!-- Símbolo $ simplificado -->
+    <path d="M12 16.4V19.6"/>
+    <path d="M13.2 17.2C13.2 16.7 12.7 16.4 12 16.4C11.3 16.4 10.8 16.8 10.8 17.3C10.8 17.8 11.2 18 12 18C12.8 18 13.2 18.3 13.2 18.8C13.2 19.3 12.7 19.6 12 19.6C11.3 19.6 10.8 19.3 10.8 18.8"/>
+
+</svg>
