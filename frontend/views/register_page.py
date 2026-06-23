@@ -106,37 +106,8 @@ def _inject_register_css() -> None:
         display: none !important;
     }}
 
-    /* ── Inputs ── */
-    [data-testid="stMainBlockContainer"] [data-testid="stTextInput"] input {{
-        border: 1px solid {GolemanTheme.BORDER} !important;
-        border-radius: 9px !important;
-        background: {GolemanTheme.BG} !important;
-        padding: 10px 12px !important;
-        font-size: 13px !important;
-        color: {GolemanTheme.TEXT} !important;
-        height: 44px !important;
-        transition: border-color .15s, box-shadow .15s !important;
-    }}
-    [data-testid="stMainBlockContainer"] [data-testid="stTextInput"] input:focus {{
-        border-color: {GolemanTheme.BLUE} !important;
-        box-shadow: 0 0 0 3px rgba(21,101,192,.12) !important;
-        background: {GolemanTheme.WHITE} !important;
-    }}
-    [data-testid="stMainBlockContainer"] [data-testid="stTextInput"] label {{
-        font-size: 12px !important;
-        font-weight: 500 !important;
-        color: {GolemanTheme.MUTED} !important;
-        letter-spacing: .03em !important;
-    }}
-
-    /* ── Selectbox de rol ── */
-    [data-testid="stMainBlockContainer"] [data-testid="stSelectbox"] > div > div {{
-        border: 1px solid {GolemanTheme.BORDER} !important;
-        border-radius: 9px !important;
-        background: {GolemanTheme.BG} !important;
-        font-size: 13px !important;
-        min-height: 44px !important;
-    }}
+    /* ── Labels ── */
+    [data-testid="stMainBlockContainer"] [data-testid="stTextInput"] label,
     [data-testid="stMainBlockContainer"] [data-testid="stSelectbox"] label {{
         font-size: 12px !important;
         font-weight: 500 !important;
@@ -144,10 +115,47 @@ def _inject_register_css() -> None:
         letter-spacing: .03em !important;
     }}
 
+    /* ── Neutralizar focus de wrappers Streamlit (Emotion CSS-in-JS) ── */
+    [data-testid="stMainBlockContainer"] [data-testid="stTextInput"] *:focus-within:not(input) {{
+        box-shadow: none !important;
+        outline: none !important;
+        border-color: transparent !important;
+    }}
+    [data-testid="stMainBlockContainer"] [data-testid="stTextInput"] *:focus:not(input) {{
+        box-shadow: none !important;
+        outline: none !important;
+        border-color: transparent !important;
+    }}
+    [data-testid="stMainBlockContainer"] [data-testid="stSelectbox"] *:focus-within {{
+        box-shadow: none !important;
+        outline: none !important;
+        border-color: transparent !important;
+    }}
+
+    /* ── Restaurar focus solo en el <input> ── */
+    [data-testid="stMainBlockContainer"] [data-testid="stTextInput"] input:focus {{
+        border-color: {GolemanTheme.BLUE} !important;
+        box-shadow: 0 0 0 3px rgba(21,101,192,.12) !important;
+        outline: none !important;
+    }}
+
+    /* ── Inputs (solo padding/height) ── */
+    [data-testid="stMainBlockContainer"] [data-testid="stTextInput"] input {{
+        padding: 10px 12px !important;
+        height: 44px !important;
+    }}
+
+    /* ── Selectbox de rol ── */
+    [data-testid="stMainBlockContainer"] [data-testid="stSelectbox"] > div > div {{
+        min-height: 44px !important;
+    }}
+
     /* ── Checkbox de términos ── */
-    [data-testid="stMainBlockContainer"] [data-testid="stCheckbox"] label {{
+    [data-testid="stMainBlockContainer"] [data-testid="stCheckbox"] label,
+    [data-testid="stMainBlockContainer"] [data-testid="stCheckbox"] label p,
+    [data-testid="stMainBlockContainer"] [data-testid="stCheckbox"] label span {{
         font-size: 12px !important;
-        color: {GolemanTheme.MUTED} !important;
+        color: {GolemanTheme.WHITE} !important;
         line-height: 1.5 !important;
     }}
     [data-testid="stMainBlockContainer"] [data-testid="stCheckbox"] {{

@@ -1,12 +1,5 @@
 CSS_HELPERS = """
 <style>
-.g-section {{
-    background: {WHITE};
-    border-left: 0.5px solid {BORDER};
-    border-right: 0.5px solid {BORDER};
-    border-bottom: 0.5px solid {BORDER};
-    padding: 18px 24px;
-}}
 .g-section-title {{
     color: {BLUE};
     font-size: 12px;
@@ -24,6 +17,16 @@ CSS_HELPERS = """
 .g-muted-note {{
     color: {MUTED};
     font-size: 11px;
+}}
+
+/* -- Chart card with orange left accent (Procesos Adm.) -- */
+.g-chart-card-accent {{
+    background: {WHITE};
+    border: 0.5px solid {BORDER};
+    border-left: 3px solid {ORANGE};
+    border-radius: 10px;
+    padding: 16px 18px;
+    box-shadow: 0 1px 4px rgba(0,9,39,.04);
 }}
 </style>
 """

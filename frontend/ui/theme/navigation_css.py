@@ -9,49 +9,70 @@ CSS_NAVIGATION = """
     padding: 16px 14px 8px !important;
 }}
 
+/* ── Nav wrapper: posiciona el botón invisible encima del item visual ── */
+[data-testid="stSidebar"] .g-nav-wrapper {{
+    position: relative !important;
+    margin: 2px 8px !important;
+}}
+
+/* ── Nav item visual: icono + texto ── */
 [data-testid="stSidebar"] .g-nav-item {{
     display: flex !important;
     align-items: center !important;
     gap: 10px !important;
-    padding: 8px 14px 8px 12px !important;
-    margin: 0 8px 2px !important;
+    padding: 8px 14px !important;
     border-radius: 8px !important;
-    cursor: pointer !important;
-    position: relative !important;
+    color: rgba(255,255,255,.7) !important;
+    font-size: 12.5px !important;
+    font-weight: 400 !important;
     transition: all .18s ease !important;
     border-left: 3px solid transparent !important;
+    user-select: none !important;
+    pointer-events: none !important;
 }}
-[data-testid="stSidebar"] .g-nav-item:hover {{
+[data-testid="stSidebar"] .g-nav-wrapper:hover .g-nav-item {{
     background: rgba(255,255,255,.07) !important;
+    color: rgba(255,255,255,.9) !important;
 }}
-[data-testid="stSidebar"] .g-nav-item--active {{
-    background: rgba(255,255,255,.08) !important;
+[data-testid="stSidebar"] .g-nav-wrapper:active .g-nav-item {{
+    background: rgba(255,255,255,.10) !important;
     border-left-color: {ORANGE} !important;
 }}
-[data-testid="stSidebar"] .g-nav-item--active:hover {{
-    background: rgba(255,255,255,.10) !important;
+[data-testid="stSidebar"] .g-nav-item img {{
+    flex-shrink: 0 !important;
+    display: block !important;
+    width: 18px !important;
+    height: 18px !important;
 }}
 
-[data-testid="stSidebar"] .g-nav-icon {{
-    font-size: 15px !important;
-    width: 20px !important;
-    text-align: center !important;
-    flex-shrink: 0 !important;
-    line-height: 1 !important;
+/* ── Botón invisible superpuesto ── */
+[data-testid="stSidebar"] .g-nav-wrapper .stButton {{
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    z-index: 2 !important;
 }}
-[data-testid="stSidebar"] .g-nav-text {{
-    font-size: 12.5px !important;
-    color: rgba(255,255,255,.7) !important;
-    flex: 1 !important;
-    font-weight: 400 !important;
-    line-height: 1.3 !important;
+[data-testid="stSidebar"] .g-nav-wrapper button {{
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 36px !important;
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer !important;
+    opacity: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
 }}
-[data-testid="stSidebar"] .g-nav-item--active .g-nav-text {{
-    color: {WHITE} !important;
-    font-weight: 500 !important;
-}}
-[data-testid="stSidebar"] .g-nav-item:hover .g-nav-text {{
-    color: rgba(255,255,255,.9) !important;
+
+/* ── Botón expandir sidebar oculto ── */
+[data-testid="stSidebarCollapseButton"],
+[data-testid="baseButton-headerNoPadding"],
+[data-testid="stExpandSidebarButton"] {{
+    display: none !important;
 }}
 </style>
 """

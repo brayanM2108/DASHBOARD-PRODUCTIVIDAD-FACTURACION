@@ -23,8 +23,8 @@ def show_dataframe(df, title=None, width="stretch"):
     st.dataframe(df, width = width)
 
 def show_success_message(message):
-    """Show success message."""
-    st.success(f"✅ {message}")
+    """Show success message (toast survives st.rerun)."""
+    st.toast(f"✅ {message}", icon="✅")
 
 
 def show_error_message(message):

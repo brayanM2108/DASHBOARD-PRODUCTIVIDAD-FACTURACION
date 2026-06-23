@@ -53,6 +53,39 @@ def render_user_filter(df_facturadores, key_prefix=""):
     return selected_users
 
 
+def render_role_user_filter(billers_df, key_prefix=""):
+    """
+    Multi-select user filter with options sorted by ROL (ANALISTAS / AUXILIARES).
+    """
+    if billers_df is None or billers_df.empty:
+        st.info("No hay datos de facturadores.")
+        return ["Todos"]
+
+    items = ["Todos"]
+    if "ROL" in billers_df.columns and "NOMBRE" in billers_df.columns:
+        grouped = billers_df.dropna(subset=["NOMBRE", "ROL"]).copy()
+        grouped["NOMBRE"] = grouped["NOMBRE"].astype(str).str.strip()
+        grouped["ROL"] = grouped["ROL"].astype(str).str.strip().str.upper()
+
+        for role in sorted(grouped["ROL"].unique()):
+            users_in_role = sorted(grouped[grouped["ROL"] == role]["NOMBRE"].unique())
+            for u in users_in_role:
+                items.append(u)
+
+    default = st.session_state.get(f"{key_prefix}_usuario", ["Todos"])
+    selected = st.multiselect(
+        "Facturador",
+        options=items,
+        default=default if all(o in items for o in default) else ["Todos"],
+        key=f"{key_prefix}_usuario",
+    )
+
+    if "Todos" in selected or not selected:
+        return ["Todos"]
+
+    return selected
+
+
 def _get_safe_date_bounds_from_df(df: pd.DataFrame | None, date_col: str | None) -> tuple[pd.Timestamp, pd.Timestamp]:
     """Return safe (min_date, max_date) from a dataframe column, fallback to today."""
     if df is None or df.empty or not date_col or date_col not in df.columns:

@@ -2,27 +2,30 @@
 Billing tab
 ===========
 UI to visualize and analyze electronic billing productivity.
+Uses 3 endpoints: /summary, /analytics, /detail.
 """
 
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from frontend.components.components import (
-    create_download_button,
-    show_dataframe,
-    show_info_message,
-)
-from frontend.components.filters import (
-    render_agreement_filter,
-    render_single_select,
+from frontend.components.components import show_info_message
+from frontend.components.visualizations import (
+    plot_billing_records_by_user,
+    plot_billing_records_trend,
+    plot_billing_trend,
+    plot_billing_value_by_user,
+    plot_conv_records_top10,
+    plot_conv_valor_top10,
+    clear_viz_filter,
+    any_viz_filter_active,
 )
 from frontend.services.billing_service import ElectronicBillingFrontendService
 from frontend.exceptions import ApiException
+from ui.goleman_theme import GolemanTheme
 
-ALL_OPTION = "Todos"
-KEY_PREFIX = "billing_v2"
-GOLEMAN_COLORS = ["#0D2B5E", "#1565C0", "#F57C00", "#2E7D32", "#5A6A84"]
+
+_VIZ_KEY = "billing"
 
 
 def _format_compact_money(value: float) -> str:
@@ -33,218 +36,69 @@ def _format_compact_money(value: float) -> str:
     return f"${value:,.0f}"
 
 
-def _get_date_bounds(df: pd.DataFrame, date_col: str | None) -> tuple[pd.Timestamp, pd.Timestamp]:
-    if not date_col or date_col not in df.columns:
-        today = pd.Timestamp.now().normalize()
-        return today, today
-
-    dates = pd.to_datetime(df[date_col], errors="coerce").dropna()
-    if dates.empty:
-        today = pd.Timestamp.now().normalize()
-        return today, today
-
-    return dates.min(), dates.max()
-
-
-def _plot_value_by_user(df: pd.DataFrame, user_col: str) -> None:
-    if df.empty:
-        show_info_message("No hay datos para graficar por usuario.")
-        return
-
-    chart_df = df.copy()
-    chart_df["VALOR_TERCERO"] = pd.to_numeric(chart_df["VALOR_TERCERO"], errors="coerce").fillna(0)
-    chart_df = chart_df.sort_values("VALOR_TERCERO", ascending=False).head(12)
-
-    fig = px.bar(
-        chart_df,
-        x=user_col,
-        y="VALOR_TERCERO",
-        text="VALOR_TERCERO",
-        color=user_col,
-        color_discrete_sequence=GOLEMAN_COLORS,
-    )
-    fig.update_traces(
-        texttemplate="$%{y:,.0f}",
-        textposition="outside",
-        hovertemplate="%{x}<br>Valor tercero: $%{y:,.0f}<extra></extra>",
-    )
-    fig.update_layout(
-        height=340,
-        showlegend=False,
-        margin=dict(l=10, r=10, t=8, b=10),
-        plot_bgcolor="white",
-        paper_bgcolor="white",
-        xaxis_title=None,
-        yaxis_title=None,
-        font=dict(color="#1A2A45"),
-    )
-    fig.update_xaxes(tickangle=-35, type="category")
-    fig.update_yaxes(tickformat=",.0f", gridcolor="#EDF1F7")
-    st.plotly_chart(fig, width="stretch")
-
-
-def _plot_distribution(df: pd.DataFrame, user_col: str) -> None:
-    if df.empty:
-        show_info_message("No hay datos para distribución.")
-        return
-
-    chart_df = df.copy()
-    chart_df["VALOR_TERCERO"] = pd.to_numeric(chart_df["VALOR_TERCERO"], errors="coerce").fillna(0)
-    chart_df = chart_df.sort_values("VALOR_TERCERO", ascending=False).head(6)
-
-    fig = px.pie(
-        chart_df,
-        names=user_col,
-        values="VALOR_TERCERO",
-        hole=0.58,
-        color_discrete_sequence=GOLEMAN_COLORS,
-    )
-    fig.update_traces(
-        textposition="inside",
-        textinfo="percent",
-        hovertemplate="%{label}<br>$%{value:,.0f}<extra></extra>",
-    )
-    fig.update_layout(
-        height=340,
-        margin=dict(l=0, r=0, t=8, b=0),
-        legend=dict(orientation="h", y=-0.1),
-        paper_bgcolor="white",
-        font=dict(color="#1A2A45"),
-    )
-    st.plotly_chart(fig, width="stretch")
-
-
-def _plot_trend(df: pd.DataFrame) -> None:
-    if df.empty:
-        show_info_message("No hay datos para graficar por fecha.")
-        return
-
-    chart_df = df.copy()
-    chart_df["DATE"] = pd.to_datetime(chart_df["DATE"], errors="coerce")
-    chart_df["VALOR_TERCERO"] = pd.to_numeric(chart_df["VALOR_TERCERO"], errors="coerce").fillna(0)
-    chart_df = chart_df.dropna(subset=["DATE"]).sort_values("DATE")
-
-    fig = px.area(
-        chart_df,
-        x="DATE",
-        y="VALOR_TERCERO",
-        markers=True,
-        color_discrete_sequence=["#1565C0"],
-    )
-    fig.update_traces(
-        line=dict(width=2, color="#1565C0"),
-        fillcolor="rgba(21,101,192,.10)",
-        hovertemplate="%{x|%d/%m/%Y}<br>Valor: $%{y:,.0f}<extra></extra>",
-    )
-    fig.update_layout(
-        height=300,
-        margin=dict(l=10, r=10, t=8, b=10),
-        plot_bgcolor="white",
-        paper_bgcolor="white",
-        xaxis_title=None,
-        yaxis_title=None,
-        font=dict(color="#1A2A45"),
-    )
-    fig.update_yaxes(tickformat=",.0f", gridcolor="#EDF1F7")
-    st.plotly_chart(fig, width="stretch")
-
-
-def _build_user_detail_table(
-    df_by_user: pd.DataFrame,
-    user_col: str,
-) -> pd.DataFrame:
-    if df_by_user.empty:
-        return pd.DataFrame()
-
-    table_df = df_by_user.copy()
-    table_df["REGISTROS"] = pd.to_numeric(table_df.get("REGISTROS"), errors="coerce").fillna(0).astype(int)
-    table_df["VALOR_TERCERO"] = pd.to_numeric(table_df.get("VALOR_TERCERO"), errors="coerce").fillna(0)
-    table_df["VALOR TERCERO"] = table_df["VALOR_TERCERO"].map(lambda v: f"${v:,.0f}")
-
-    return (
-        table_df[[user_col, "REGISTROS", "VALOR TERCERO"]]
-        .rename(columns={user_col: "USUARIO"})
-        .sort_values("REGISTROS", ascending=False)
-        .reset_index(drop=True)
-    )
-
-
 def _section_title(label: str) -> None:
     st.markdown(f'<div class="g-section-title">{label}</div>', unsafe_allow_html=True)
 
 
+def _insight_html(item) -> str:
+    colors = {
+        "success": (GolemanTheme.SUCCESS_LIGHT, GolemanTheme.SUCCESS),
+        "info": (GolemanTheme.BG, GolemanTheme.BLUE),
+        "warning": (GolemanTheme.WARNING_LIGHT, GolemanTheme.ORANGE),
+    }
+    bg, accent = colors.get(item.type, colors["info"])
+    return (
+        f'<div style="background:{bg};border-left:3px solid {accent};'
+        f'border-radius:8px;padding:12px 16px;margin-bottom:8px">'
+        f'<div style="font-size:11px;font-weight:600;color:{accent};'
+        f'text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">'
+        f'{item.title}</div>'
+        f'<div style="font-size:12px;color:{GolemanTheme.TEXT}">{item.description}</div>'
+        f'</div>'
+    )
+
+
 def render_tab_billing_electronic():
-    """Render the billing V2 tab."""
     render_billing_electronic_section()
 
 
 def render_billing_electronic_section():
-    """Render billing section based only on electronic billing."""
     e_billing_df = st.session_state.get("electronic_billing_df")
 
     if e_billing_df is None or e_billing_df.empty:
-        show_info_message("No hay datos de facturación electrónica. Carga un archivo en la sección de carga.")
+        show_info_message("No hay datos de facturacion electronica. Carga un archivo en la seccion de carga.")
         return
-
-    user_col = next((c for c in ["USUARIO", "USUARIO FACTURO", "USUARIO FACTUR"] if c in e_billing_df.columns), None)
-    date_col = next((c for c in ["FECHA FACTURA", "FECHA", "FECHA_SERVICIO"] if c in e_billing_df.columns), None)
-    agreement_col = next((c for c in ["CONVENIO"] if c in e_billing_df.columns), None)
 
     st.markdown(
         """
         <div class="g-tab-header">
-          <div class="g-tab-header-title"><span>▣</span>Productividad · Facturación electrónica</div>
+          <div class="g-tab-header-title"><span>▣</span>Productividad · Facturacion electronica</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    st.markdown('<div class="g-section">', unsafe_allow_html=True)
-    _section_title("Filtros")
-    col1, col2, col3, col4 = st.columns(4)
-    min_date, max_date = _get_date_bounds(e_billing_df, date_col)
-    with col1:
-        start_date = st.date_input(
-            "Fecha inicio",
-            value=min_date.date(),
-            key=f"{KEY_PREFIX}_start_date",
-        )
-    with col2:
-        end_date = st.date_input(
-            "Fecha fin",
-            value=max_date.date(),
-            key=f"{KEY_PREFIX}_end_date",
-        )
+    start_date = st.session_state.get("global_start_date")
+    end_date = st.session_state.get("global_end_date")
+    selected_user = st.session_state.get("global_user")
 
-    users_list = [ALL_OPTION]
-    if user_col and user_col in e_billing_df.columns:
-        users_list = [ALL_OPTION] + sorted(
-            e_billing_df[user_col].dropna().astype(str).str.strip().replace("", pd.NA).dropna().unique().tolist()
-        )
-
-    agreement_list = [ALL_OPTION]
-    if agreement_col and agreement_col in e_billing_df.columns:
-        agreement_list = [ALL_OPTION] + sorted(
-            e_billing_df[agreement_col].dropna().astype(str).str.strip().replace("", pd.NA).dropna().unique().tolist()
-        )
-
-    with col3:
-        agreement_sel = render_agreement_filter(agreement_list, key_prefix=KEY_PREFIX)
-    with col4:
-        usuario_sel = render_single_select("Usuario", users_list, key=f"{KEY_PREFIX}_usuario")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    selected_agreement = None if agreement_sel == ALL_OPTION else agreement_sel
-    selected_users = None if usuario_sel == ALL_OPTION else [usuario_sel]
+    user = st.session_state.get("user", {})
+    role = user.get("role") if user else None
+    if role in ("ADMIN", "SUPERVISOR"):
+        selected_users = [selected_user] if selected_user and selected_user != "Todos" else None
+    else:
+        selected_users = None
+    selected_agreement = None
 
     token = st.session_state.get("token")
     if not token:
-        show_info_message("Debes iniciar sesión para ver la facturación.")
+        show_info_message("Debes iniciar sesion para ver la facturacion.")
         return
 
+    service = ElectronicBillingFrontendService(token=token)
+
     try:
-        service = ElectronicBillingFrontendService(token=token)
-        metrics = service.get_metrics(
+        summary = service.get_summary(
             start_date=start_date,
             end_date=end_date,
             selected_users=selected_users,
@@ -254,53 +108,266 @@ def render_billing_electronic_section():
         st.warning(str(e))
         return
 
-    df_by_user = pd.DataFrame([r.__dict__ for r in metrics.by_user])
-    df_by_date = pd.DataFrame([r.__dict__ for r in metrics.by_date])
-    result_user_col = "USUARIO" if "USUARIO" in df_by_user.columns else (df_by_user.columns[0] if not df_by_user.empty else "USUARIO")
+    kpis = summary.kpis
+    period = summary.period
 
-    st.markdown('<div class="g-section">', unsafe_allow_html=True)
-    _section_title("Métricas del período")
+    _section_title("Metricas del periodo")
     k1, k2, k3, k4 = st.columns(4)
-    total_registros = metrics.total_records
-    total_valor = metrics.total_valor_tercero
-    active_users = int(df_by_user[result_user_col].nunique()) if result_user_col in df_by_user.columns else 0
-    avg_per_user = int(total_registros / active_users) if active_users else 0
-
     with k1:
-        st.metric("Total registros", f"{total_registros:,}")
+        st.metric("Total registros", f"{kpis.total_records:,}")
     with k2:
-        st.metric("Valor tercero", _format_compact_money(total_valor))
+        st.metric("Valor facturado", _format_compact_money(kpis.total_valor_tercero))
     with k3:
-        st.metric("Usuarios activos", f"{active_users:,}")
+        st.metric("Prom. diario registros", f"{kpis.daily_avg_records:,.0f}")
     with k4:
-        st.metric("Promedio / usuario", f"{avg_per_user:,}")
-    st.markdown("</div>", unsafe_allow_html=True)
+        st.metric("Ticket promedio", _format_compact_money(kpis.average_ticket))
 
-    st.markdown('<div class="g-section">', unsafe_allow_html=True)
-    _section_title("Valor facturado por usuario")
-    chart_col, dist_col = st.columns([2, 1])
-    with chart_col:
-        st.markdown('<div class="g-chart-card"><div class="g-muted-note">Valor acumulado por usuario</div>', unsafe_allow_html=True)
-        _plot_value_by_user(df_by_user, result_user_col)
-        st.markdown("</div>", unsafe_allow_html=True)
-    with dist_col:
-        st.markdown('<div class="g-chart-card"><div class="g-muted-note">Distribución</div>', unsafe_allow_html=True)
-        _plot_distribution(df_by_user, result_user_col)
-        st.markdown("</div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    if period and period.last_update:
+        st.caption(f"Ultima actualizacion: {period.last_update[:19].replace('T', ' ')}")
 
-    st.markdown('<div class="g-section">', unsafe_allow_html=True)
-    _section_title("Detalle por usuario")
-    detail_df = _build_user_detail_table(df_by_user, result_user_col)
-    if detail_df.empty:
-        show_info_message("No hay detalle por usuario para mostrar.")
-    else:
-        st.dataframe(detail_df, width="stretch", hide_index=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    if any_viz_filter_active(_VIZ_KEY):
+        if st.button("Limpiar filtro", key="clear_bill_filter", use_container_width=True):
+            clear_viz_filter(_VIZ_KEY)
+            st.rerun()
 
-    st.markdown('<div class="g-section">', unsafe_allow_html=True)
-    _section_title("Tendencia por fecha")
-    st.markdown('<div class="g-chart-card"><div class="g-muted-note">Valor facturado acumulado</div>', unsafe_allow_html=True)
-    _plot_trend(df_by_date)
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    tab_graficos, tab_detalle = st.tabs(["Graficos y Analytics", "Tabla de detalle"])
+
+    with tab_graficos:
+        try:
+            analytics = service.get_analytics(
+                start_date=start_date,
+                end_date=end_date,
+                selected_users=selected_users,
+                selected_agreement=selected_agreement,
+            )
+        except ApiException as e:
+            st.warning(str(e))
+            analytics = None
+
+        if analytics:
+            df_by_user = pd.DataFrame([u.__dict__ for u in analytics.user_distribution])
+            df_by_date = pd.DataFrame([d.__dict__ for d in analytics.daily_trend])
+
+            df_chart_users = df_by_user.rename(columns={
+                "usuario": "USUARIO", "records": "REGISTROS", "valor": "VALOR_TERCERO",
+            }) if not df_by_user.empty else df_by_user
+            df_chart_dates = df_by_date.rename(columns={
+                "date": "DATE", "records": "REGISTROS", "valor": "VALOR_TERCERO",
+            }) if not df_by_date.empty else df_by_date
+
+            result_user_col = "USUARIO" if "USUARIO" in (df_chart_users.columns if not df_chart_users.empty else []) else (
+                df_chart_users.columns[0] if not df_chart_users.empty else "USUARIO"
+            )
+
+            sub_tab_users, sub_tab_dates, sub_tab_eps, sub_tab_convenios, sub_tab_insights = st.tabs(
+                ["Por usuario", "Tendencia diaria", "EPS", "Convenios", "Insights"]
+            )
+
+            with sub_tab_users:
+                if not df_by_user.empty:
+
+                    _section_title("Registros por usuario")
+                    plot_billing_records_by_user(df_chart_users, result_user_col, view_key=_VIZ_KEY)
+
+                    _section_title("Valor facturado por usuario")
+                    plot_billing_value_by_user(df_chart_users, result_user_col, view_key=_VIZ_KEY)
+
+                    display_df = df_by_user.copy()
+                    display_df["VALOR TERCERO"] = display_df["valor"].map(lambda v: f"${v:,.0f}")
+                    st.dataframe(
+                        display_df[["usuario", "records", "VALOR TERCERO", "ticket_promedio", "participacion_records", "participacion_valor"]],
+                        width="stretch",
+                        hide_index=True,
+                        column_config={
+                            "usuario": "Usuario",
+                            "records": st.column_config.NumberColumn("Registros", format="%d"),
+                            "VALOR TERCERO": "Valor facturado",
+                            "ticket_promedio": st.column_config.NumberColumn("Ticket prom.", format="$%.0f"),
+                            "participacion_records": st.column_config.NumberColumn("% Registros", format="%.1f%%"),
+                            "participacion_valor": st.column_config.NumberColumn("% Valor", format="%.1f%%"),
+                        },
+                    )
+
+            with sub_tab_dates:
+                col_reg, col_val = st.columns(2)
+                with col_reg:
+                    _section_title("Registros por fecha")
+                    plot_billing_records_trend(df_chart_dates, view_key=_VIZ_KEY)
+                with col_val:
+                    _section_title("Valor facturado acumulado")
+                    plot_billing_trend(df_chart_dates, view_key=_VIZ_KEY)
+
+            with sub_tab_eps:
+                df_eps = pd.DataFrame([e.__dict__ for e in analytics.eps_distribution])
+
+                if df_eps.empty:
+                    show_info_message("No hay datos de EPS.")
+                else:
+                    col_eps_rec, col_eps_val = st.columns(2)
+                    with col_eps_rec:
+                        _section_title("Registros por EPS")
+                        fig_eps_rec = px.pie(
+                            df_eps, names="eps", values="records", hole=0.55,
+                            color_discrete_sequence=["#1565C0", "#F97838", "#0D9488", "#7C3AED", "#DB2777",
+                                                      "#0284C7", "#EA580C", "#059669", "#6D28D9", "#E11D48"],
+                        )
+                        fig_eps_rec.update_traces(
+                            textposition="inside", textinfo="percent",
+                            hovertemplate="%{label}<br>%{value:,} registros<extra></extra>",
+                        )
+                        fig_eps_rec.update_layout(
+                            height=300, margin=dict(l=0, r=0, t=0, b=0),
+                            paper_bgcolor="white", font=dict(color="#1A2A45"),
+                            showlegend=True, legend=dict(orientation="h", y=-0.1),
+                        )
+                        st.plotly_chart(fig_eps_rec, use_container_width=True, config={"displayModeBar": False})
+                    with col_eps_val:
+                        _section_title("Valor por EPS")
+                        fig_eps_val = px.pie(
+                            df_eps, names="eps", values="valor", hole=0.55,
+                            color_discrete_sequence=["#1565C0", "#F97838", "#0D9488", "#7C3AED", "#DB2777",
+                                                      "#0284C7", "#EA580C", "#059669", "#6D28D9", "#E11D48"],
+                        )
+                        fig_eps_val.update_traces(
+                            textposition="inside", textinfo="percent",
+                            hovertemplate="%{label}<br>$%{value:,.0f}<extra></extra>",
+                        )
+                        fig_eps_val.update_layout(
+                            height=300, margin=dict(l=0, r=0, t=0, b=0),
+                            paper_bgcolor="white", font=dict(color="#1A2A45"),
+                            showlegend=True, legend=dict(orientation="h", y=-0.1),
+                        )
+                        st.plotly_chart(fig_eps_val, use_container_width=True, config={"displayModeBar": False})
+
+                    st.dataframe(
+                        df_eps,
+                        width="stretch",
+                        hide_index=True,
+                        column_config={
+                            "eps": "EPS",
+                            "records": st.column_config.NumberColumn("Registros", format="%d"),
+                            "valor": st.column_config.NumberColumn("Valor", format="$%.0f"),
+                        },
+                    )
+
+            with sub_tab_convenios:
+                df_conv = pd.DataFrame([c.__dict__ for c in analytics.convenio_distribution])
+
+                if df_conv.empty:
+                    show_info_message("No hay datos de convenios.")
+                else:
+                    col_conv_rec, col_conv_val = st.columns(2)
+                    with col_conv_rec:
+                        _section_title("Top 10 Convenios · Registros")
+                        plot_conv_records_top10(df_conv, view_key=_VIZ_KEY)
+                    with col_conv_val:
+                        _section_title("Top 10 Convenios · Valor")
+                        plot_conv_valor_top10(df_conv, view_key=_VIZ_KEY)
+
+                    st.dataframe(
+                        df_conv,
+                        width="stretch",
+                        hide_index=True,
+                        column_config={
+                            "convenio": "Convenio",
+                            "records": st.column_config.NumberColumn("Registros", format="%d"),
+                            "valor": st.column_config.NumberColumn("Valor", format="$%.0f"),
+                        },
+                    )
+
+            with sub_tab_insights:
+                _section_title("Insights del periodo")
+                for ins in analytics.insights:
+                    st.markdown(_insight_html(ins), unsafe_allow_html=True)
+
+                rankings = analytics.rankings
+                if rankings.top_records or rankings.top_valor:
+                    _section_title("Rankings")
+                    cr, cv = st.columns(2)
+                    with cr:
+                        st.markdown(
+                            f'<div style="font-size:12px;font-weight:600;color:{GolemanTheme.NAVY};margin-bottom:4px">'
+                            f'Top registros</div>',
+                            unsafe_allow_html=True,
+                        )
+                        for i, r in enumerate(rankings.top_records, 1):
+                            st.markdown(
+                                f'<div style="font-size:12px;padding:3px 0">{i}. {r.usuario} — {r.records:,}</div>',
+                                unsafe_allow_html=True,
+                            )
+                    with cv:
+                        st.markdown(
+                            f'<div style="font-size:12px;font-weight:600;color:{GolemanTheme.NAVY};margin-bottom:4px">'
+                            f'Top valor</div>',
+                            unsafe_allow_html=True,
+                        )
+                        for i, v in enumerate(rankings.top_valor, 1):
+                            st.markdown(
+                                f'<div style="font-size:12px;padding:3px 0">{i}. {v.usuario} — ${v.valor:,.0f}</div>',
+                                unsafe_allow_html=True,
+                            )
+
+    with tab_detalle:
+        detail_page = st.session_state.get("_bill_detail_page", 1)
+
+        try:
+            detail = service.get_detail(
+                start_date=start_date,
+                end_date=end_date,
+                selected_users=selected_users,
+                selected_agreement=selected_agreement,
+                page=detail_page,
+                page_size=50,
+            )
+        except ApiException as e:
+            st.warning(str(e))
+            detail = None
+
+        if detail:
+            pag = detail.pagination
+            total_pages = max(1, (pag.total + pag.page_size - 1) // pag.page_size)
+
+            st.caption(f"Mostrando {len(detail.data)} de {pag.total:,} registros · Pagina {pag.page} de {total_pages}")
+
+            cp1, cp2, cp3, cp4, cp5 = st.columns([1, 1, 1, 1, 3])
+            with cp1:
+                if st.button("◀ Anterior", disabled=(detail_page <= 1), use_container_width=True, key="bill_prev"):
+                    st.session_state["_bill_detail_page"] = max(1, detail_page - 1)
+                    st.rerun()
+            with cp2:
+                if st.button("Siguiente ▶", disabled=(detail_page >= total_pages), use_container_width=True, key="bill_next"):
+                    st.session_state["_bill_detail_page"] = min(total_pages, detail_page + 1)
+                    st.rerun()
+            with cp3:
+                go_page = st.number_input("Ir a pagina", min_value=1, max_value=total_pages, value=detail_page, key="bill_goto")
+            with cp4:
+                if st.button("Ir", use_container_width=True, key="bill_go"):
+                    st.session_state["_bill_detail_page"] = go_page
+                    st.rerun()
+
+            df_detail = pd.DataFrame([d.__dict__ for d in detail.data])
+            if not df_detail.empty:
+                st.dataframe(
+                    df_detail,
+                    width="stretch",
+                    hide_index=True,
+                    column_config={
+                        "identificacion": "ID",
+                        "factura": "Factura",
+                        "usuario": "Usuario",
+                        "eps": "EPS",
+                        "convenio": "Convenio",
+                        "fecha_factura": "Fecha factura",
+                        "fecha_legalizacion": "Fecha legalizacion",
+                        "paciente": "Paciente",
+                        "valor_tercero": st.column_config.NumberColumn("Valor tercero", format="$%.0f"),
+                        "estado": "Estado",
+                    },
+                )
+            else:
+                show_info_message("No hay registros en esta pagina.")
+
+    # ── Export section ──
+    from frontend.components.export_panel import render_export_section
+    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+    render_export_section("billing", allow_user_filter=True)

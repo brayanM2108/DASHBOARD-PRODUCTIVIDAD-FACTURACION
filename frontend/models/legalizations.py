@@ -14,6 +14,10 @@ class ProductivityMetrics:
 
     category: str | None = None
 
+    tiempo_total_horas: float = 0.0
+
+    tiempo_promedio_diario_horas: float = 0.0
+
 
 @dataclass
 class LegalizationMetrics:

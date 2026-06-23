@@ -2,7 +2,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from frontend.services.rips_service import RipsFrontendService
+from frontend.services.legalizations_service import LegalizationsService
 from ui.goleman_theme import GolemanTheme
 
 ALL_OPTION = "Todos"
@@ -14,11 +14,11 @@ def _format_horas(horas: float) -> str:
     return f"{h}h {m:02d}m"
 
 
-def render_tab_rips():
+def render_tab_legalizations():
     st.markdown(
         GolemanTheme.section_header(
-            "RIPS",
-            "Registros individuales de prestaci\u00f3n de servicios",
+            "Legalizaciones",
+            "PPL y Convenios",
         ),
         unsafe_allow_html=True,
     )
@@ -36,26 +36,40 @@ def render_tab_rips():
 
     token = st.session_state.get("token")
     if not token:
-        st.warning("Debes iniciar sesi\u00f3n para ver los RIPS.")
+        st.warning("Debes iniciar sesi\u00f3n para ver las legalizaciones.")
         return
 
-    service = RipsFrontendService()
-    result = service.get_metrics(
+    service = LegalizationsService()
+    metrics = service.get_metrics(
         start_date=start_date,
         end_date=end_date,
         selected_users=selected_users,
     )
 
-    if result.error:
-        st.error(result.error)
+    if metrics.error:
+        st.error(metrics.error)
         return
 
-    metrics = result.metrics
-    _render_kpis(metrics)
-    _render_charts_and_tables(metrics)
+    tab_ppl, tab_agreements = st.tabs(["PPL", "Convenios"])
+
+    with tab_ppl:
+        _render_productivity_section(metrics=metrics.ppl, title="Legalizaciones PPL")
+
+    with tab_agreements:
+        _render_productivity_section(metrics=metrics.agreements, title="Legalizaciones Convenios")
+
+    # ── Export section (una sola vez, fuera de los tabs internos) ──
+    from frontend.components.export_panel import render_export_section
+    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+    render_export_section("legalizations", allow_user_filter=True)
 
 
-def _render_kpis(metrics):
+def _render_productivity_section(metrics, title: str):
+    st.markdown(
+        GolemanTheme.section_header(title),
+        unsafe_allow_html=True,
+    )
+
     k1, k2, k3, k4 = st.columns(4)
     with k1:
         st.markdown(
@@ -102,8 +116,6 @@ def _render_kpis(metrics):
             unsafe_allow_html=True,
         )
 
-
-def _render_charts_and_tables(metrics):
     tab_users, tab_dates = st.tabs(["Por usuario", "Por fecha"])
 
     with tab_users:
@@ -111,9 +123,8 @@ def _render_charts_and_tables(metrics):
         if user_df.empty:
             st.info("No existen registros para los filtros seleccionados.")
         else:
-            col_label = [c for c in user_df.columns if c not in ("REGISTROS", "TIEMPO_HORAS")][0]
-            if col_label and "REGISTROS" in user_df.columns:
-                fig = px.bar(user_df, x=col_label, y="REGISTROS", color=col_label, color_discrete_sequence=["#1565C0"])
+            if "USUARIO" in user_df.columns and "REGISTROS" in user_df.columns:
+                fig = px.bar(user_df, x="USUARIO", y="REGISTROS", color="USUARIO", color_discrete_sequence=["#1565C0"])
                 fig.update_layout(
                     height=350,
                     margin=dict(l=10, r=10, t=10, b=10),
@@ -159,7 +170,4 @@ def _render_charts_and_tables(metrics):
                 st.plotly_chart(fig, use_container_width=True)
             st.dataframe(date_df, use_container_width=True)
 
-    # ── Export section ──
-    from frontend.components.export_panel import render_export_section
-    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-    render_export_section("rips", allow_user_filter=True)
+

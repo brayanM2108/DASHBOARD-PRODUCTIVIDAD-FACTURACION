@@ -58,3 +58,14 @@ class ApiClient:
         )
         response.raise_for_status()
         return response.json()
+
+    def get_bytes(self, path: str, params: dict | None = None) -> bytes:
+        url = build_api_url(path)
+        response = requests.get(
+            url,
+            params=params,
+            headers=self._headers(),
+            timeout=120,
+        )
+        response.raise_for_status()
+        return response.content

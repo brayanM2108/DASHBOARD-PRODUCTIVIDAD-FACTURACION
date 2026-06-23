@@ -1,5 +1,4 @@
 from frontend.api.api_client import ApiClient
-from api.auth_api import build_api_url
 
 
 class LegalizationsApi:

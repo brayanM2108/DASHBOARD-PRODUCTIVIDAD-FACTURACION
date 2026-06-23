@@ -8,6 +8,8 @@ class RipsProductivityMetrics:
     by_user: list[dict] = field(default_factory=list)
     by_date: list[dict] = field(default_factory=list)
     category: str | None = None
+    tiempo_total_horas: float = 0.0
+    tiempo_promedio_diario_horas: float = 0.0
 
 
 @dataclass

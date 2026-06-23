@@ -31,16 +31,16 @@ CSS_ACTIONS = """
     transform: scale(.98) !important;
 }}
 
-/* ── Ghost/outline buttons (Recargar, Limpiar, No, Cerrar sesión) ── */
+/* ── Ghost/outline buttons (Recargar, Limpiar, No) ── */
 [data-testid="stSidebar"] button:not([kind="primary"]) {{
     background: transparent !important;
     border: 0.5px solid rgba(255,255,255,.08) !important;
-    border-radius: 8px !important;
+    border-radius: 10px !important;
     color: rgba(255,255,255,.5) !important;
     font-size: 11.5px !important;
     font-weight: 400 !important;
     padding: 0 12px !important;
-    height: 34px !important;
+    height: 36px !important;
     transition: all .2s ease !important;
     width: 100% !important;
 }}
@@ -50,61 +50,40 @@ CSS_ACTIONS = """
     background: rgba(255,255,255,.05) !important;
 }}
 
-/* ── Footer ── */
-[data-testid="stSidebar"] .g-sidebar-footer {{
-    padding: 16px 14px 12px !important;
-    border-top: 0.5px solid rgba(255,255,255,.06) !important;
-    margin-top: 8px !important;
+/* ── Cerrar sesión (Goleman orange) ── */
+.element-container:has(#sb-logout-marker) + .element-container .stButton button {{
+    background: {ORANGE} !important;
+    color: {WHITE} !important;
+    border: none !important;
+    border-radius: 10px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    padding: 0 12px !important;
+    height: 38px !important;
+    width: 100% !important;
+    transition: all .2s ease !important;
 }}
-[data-testid="stSidebar"] .g-footer-row {{
-    font-size: 9.5px !important;
-    color: rgba(255,255,255,.18) !important;
-    line-height: 1.9 !important;
-    letter-spacing: .01em !important;
+.element-container:has(#sb-logout-marker) + .element-container .stButton button:hover {{
+    background: #e06020 !important;
+    box-shadow: 0 2px 12px rgba(249,120,56,.3) !important;
+    transform: translateY(-1px) !important;
 }}
-[data-testid="stSidebar"] .g-footer-row span {{
-    color: rgba(255,255,255,.12) !important;
+.element-container:has(#sb-logout-marker) + .element-container .stButton button:active {{
+    transform: scale(.98) !important;
 }}
 
-/* ─ Summary ── */
-[data-testid="stSidebar"] .g-summary {{
-    padding: 0 12px !important;
+/* ── Footer ── */
+[data-testid="stSidebar"] .g-sidebar-footer {{
+    padding: 16px 14px 20px !important;
+    border-top: 0.5px solid rgba(255,255,255,.06) !important;
+    margin-top: 8px !important;
+    text-align: center !important;
 }}
-[data-testid="stSidebar"] .g-summary-label {{
-    font-size: 9px !important;
-    font-weight: 500 !important;
-    color: rgba(255,255,255,.3) !important;
-    letter-spacing: .08em !important;
-    text-transform: uppercase !important;
-    padding: 14px 2px 10px !important;
-}}
-[data-testid="stSidebar"] .g-summary-grid {{
-    display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
-    gap: 8px !important;
-}}
-[data-testid="stSidebar"] .g-summary-card {{
-    background: rgba(255,255,255,.04) !important;
-    border: 0.5px solid rgba(255,255,255,.06) !important;
-    border-left: 2.5px solid {ORANGE} !important;
-    border-radius: 8px !important;
-    padding: 10px 12px !important;
-    transition: background .2s ease !important;
-}}
-[data-testid="stSidebar"] .g-summary-card:hover {{
-    background: rgba(255,255,255,.07) !important;
-}}
-[data-testid="stSidebar"] .g-summary-value {{
-    font-size: 18px !important;
-    font-weight: 500 !important;
-    color: {WHITE} !important;
-    line-height: 1.2 !important;
-}}
-[data-testid="stSidebar"] .g-summary-title {{
-    font-size: 9.5px !important;
-    color: rgba(255,255,255,.35) !important;
-    margin-top: 2px !important;
-    letter-spacing: .02em !important;
+[data-testid="stSidebar"] .g-footer-row {{
+    font-size: 11px !important;
+    color: rgba(255,255,255,.18) !important;
+    line-height: 1.8 !important;
+    letter-spacing: .01em !important;
 }}
 
 /* ── Column gap override for action row ── */

@@ -25,6 +25,8 @@ class RipsFrontendService:
                     by_user=response.get("by_user") or [],
                     by_date=response.get("by_date") or [],
                     category=response.get("category"),
+                    tiempo_total_horas=response.get("tiempo_total_horas", 0.0),
+                    tiempo_promedio_diario_horas=response.get("tiempo_promedio_diario_horas", 0.0),
                 ),
             )
         except Exception as e:
