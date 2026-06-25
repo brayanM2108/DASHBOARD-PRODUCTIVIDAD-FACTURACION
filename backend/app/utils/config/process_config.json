@@ -1,0 +1,15 @@
+{
+  "processes": [
+    {"name": "AUDITAR CUENTAS", "seconds": 180},
+    {"name": "DESCARGAR AUTORIZACIONES", "seconds": 120},
+    {"name": "DESCARGAR SOPORTES", "seconds": 60},
+    {"name": "UNIFICAR SOPORTES", "seconds": 900},
+    {"name": "VALIDAR RIPS", "seconds": 1200},
+    {"name": "RADICAR CUENTAS", "seconds": 900}
+  ],
+  "module_times": {
+    "rips": 45,
+    "legalizations": 90,
+    "billing": 45
+  }
+}
