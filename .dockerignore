@@ -1,0 +1,42 @@
+# Environment and secrets
+.env
+*.env
+secrets.toml
+
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp files
+*.tmp
+*.log
+~$*.xlsx
+
+# Agent skills
+.agents/
+skills-lock.json
+
+# Streamlit cache
+.streamlit/secrets.toml
