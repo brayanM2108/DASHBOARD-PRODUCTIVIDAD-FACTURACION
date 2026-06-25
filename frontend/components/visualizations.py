@@ -419,7 +419,7 @@ def plot_billing_value_by_user(df: pd.DataFrame, user_col: str, view_key=None):
             return
 
     chart_df["VALOR_TERCERO"] = pd.to_numeric(chart_df["VALOR_TERCERO"], errors="coerce").fillna(0)
-    chart_df = chart_df.sort_values("VALOR_TERCERO", ascending=True)
+    chart_df = chart_df.sort_values("VALOR_TERCERO", ascending=False)
     cats = chart_df[user_col].tolist()
     chart_df[user_col] = pd.Categorical(chart_df[user_col], categories=cats, ordered=True)
 
@@ -491,7 +491,7 @@ def plot_billing_records_by_user(df: pd.DataFrame, user_col: str, view_key=None)
             return
 
     chart_df["REGISTROS"] = pd.to_numeric(chart_df["REGISTROS"], errors="coerce").fillna(0).astype(int)
-    chart_df = chart_df.sort_values("REGISTROS", ascending=True)
+    chart_df = chart_df.sort_values("REGISTROS", ascending=False)
     cats = chart_df[user_col].tolist()
     chart_df[user_col] = pd.Categorical(chart_df[user_col], categories=cats, ordered=True)
 

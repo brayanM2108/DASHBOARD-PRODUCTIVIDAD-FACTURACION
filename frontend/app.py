@@ -8,6 +8,7 @@ Streamlit Application Entry Point
 """
 
 import streamlit as st
+import pandas as pd
 import sys
 from pathlib import Path
 
@@ -15,12 +16,7 @@ _root = Path(__file__).resolve().parents[1]
 if str(_root) not in sys.path:
     sys.path.append(str(_root))
 
-_backend_pkg = _root / "backend"
-if str(_backend_pkg) not in sys.path:
-    sys.path.append(str(_backend_pkg))
-
-from backend.app.utils.config.settings import PAGE_CONFIG
-from backend.app.etl.loaders import load_all_persisted_frames_cached, load_billers_master_cached
+from frontend.api.data_api import DataApi
 from frontend.components.file_upload import render_file_upload_section
 from frontend.components.global_filters_bar import render_global_filters_bar
 from frontend.components.sidebar import render_state_data
@@ -34,23 +30,39 @@ from frontend.views.home_page import HomePage
 from frontend.views.login_page import render_login_page
 from frontend.views.register_page import render_register_page
 from frontend.views.admin_panel import render_admin_panel
+from frontend.views.change_password_page import render_change_password_page
 from frontend.auth.auth_guard import is_authenticated
 from ui.goleman_theme import GolemanTheme
+
+PAGE_CONFIG = {
+    "page_title": "Dashboard de Productividad",
+    "page_icon": "📊",
+    "layout": "wide",
+    "initial_sidebar_state": "expanded",
+}
 
 
 def init_session_state():
 
-    if 'initialized' not in st.session_state:
-        data = load_all_persisted_frames_cached()
+    if "initialized" not in st.session_state:
+        data_api = DataApi()
+        try:
+            result = data_api.load(include_data=True)
+        except Exception as e:
+            st.warning("No se pudieron cargar los datos desde el servidor. "
+                       "Asegúrate de que el backend esté corriendo en http://localhost:8000.")
+            result = {}
 
-        st.session_state["legalizations_df"] = data.get("legalizations_df")
-        st.session_state["rips_df"] = data.get("rips_df")
-        st.session_state["billers_df"] = data.get("billers_df")
-        st.session_state["electronic_billing_df"] = data.get("electronic_billing_df")
-        st.session_state["administrative_processes_df"] = data.get("administrative_processes_df")
-
-        if st.session_state["billers_df"] is None:
-            st.session_state["billers_df"] = load_billers_master_cached()
+        _dataset_keys = (
+            "legalizations_df", "rips_df", "billers_df",
+            "electronic_billing_df", "administrative_processes_df",
+        )
+        for key in _dataset_keys:
+            entry = result.get(key)
+            if entry and entry.get("data"):
+                st.session_state[key] = pd.DataFrame(entry["data"])
+            else:
+                st.session_state[key] = None
 
         st.session_state["initialized"] = True
 
@@ -72,13 +84,17 @@ def main():
     # Eliminar flag de login después de autenticarse
     st.session_state.pop("_just_logged_in", None)
 
+    if st.session_state.get("must_change_password"):
+        render_change_password_page()
+        st.stop()
+
     init_session_state()
 
     nav_tab = st.session_state.get("_nav_tab", "Inicio")
 
     render_state_data()
 
-    if nav_tab != "Cargar Archivos":
+    if nav_tab not in ("Cargar Archivos", "Panel Admin"):
         render_global_filters_bar()
 
     _tab_titles = {
@@ -126,5 +142,5 @@ def main():
     elif nav_tab == "Panel Admin":
         render_admin_panel()
 
-if __name__ == "__main__":
-    main()
+
+main()

@@ -29,11 +29,7 @@ _VIZ_KEY = "billing"
 
 
 def _format_compact_money(value: float) -> str:
-    if abs(value) >= 1_000_000_000:
-        return f"${value / 1_000_000_000:,.1f}B"
-    if abs(value) >= 1_000_000:
-        return f"${value / 1_000_000:,.1f}M"
-    return f"${value:,.0f}"
+    return f"${value:,.2f}"
 
 
 def _section_title(label: str) -> None:
@@ -208,8 +204,10 @@ def render_billing_electronic_section():
                         _section_title("Registros por EPS")
                         fig_eps_rec = px.pie(
                             df_eps, names="eps", values="records", hole=0.55,
-                            color_discrete_sequence=["#1565C0", "#F97838", "#0D9488", "#7C3AED", "#DB2777",
-                                                      "#0284C7", "#EA580C", "#059669", "#6D28D9", "#E11D48"],
+                            color_discrete_sequence=[GolemanTheme.BLUE, GolemanTheme.ORANGE, GolemanTheme.SUCCESS,
+                                                      GolemanTheme.NAVY2, GolemanTheme.WARNING,
+                                                      GolemanTheme.SKY, GolemanTheme.DANGER, GolemanTheme.BLUE_LIGHT,
+                                                      GolemanTheme.NAVY, GolemanTheme.ORANGE_LIGHT],
                         )
                         fig_eps_rec.update_traces(
                             textposition="inside", textinfo="percent",
@@ -217,16 +215,19 @@ def render_billing_electronic_section():
                         )
                         fig_eps_rec.update_layout(
                             height=300, margin=dict(l=0, r=0, t=0, b=0),
-                            paper_bgcolor="white", font=dict(color="#1A2A45"),
-                            showlegend=True, legend=dict(orientation="h", y=-0.1),
+                            paper_bgcolor=GolemanTheme.WHITE, font=dict(color=GolemanTheme.TEXT, size=11),
+                            showlegend=True, legend=dict(orientation="h", y=-0.1,
+                                                         font=dict(size=10, color=GolemanTheme.MUTED)),
                         )
                         st.plotly_chart(fig_eps_rec, use_container_width=True, config={"displayModeBar": False})
                     with col_eps_val:
                         _section_title("Valor por EPS")
                         fig_eps_val = px.pie(
                             df_eps, names="eps", values="valor", hole=0.55,
-                            color_discrete_sequence=["#1565C0", "#F97838", "#0D9488", "#7C3AED", "#DB2777",
-                                                      "#0284C7", "#EA580C", "#059669", "#6D28D9", "#E11D48"],
+                            color_discrete_sequence=[GolemanTheme.BLUE, GolemanTheme.ORANGE, GolemanTheme.SUCCESS,
+                                                      GolemanTheme.NAVY2, GolemanTheme.WARNING,
+                                                      GolemanTheme.SKY, GolemanTheme.DANGER, GolemanTheme.BLUE_LIGHT,
+                                                      GolemanTheme.NAVY, GolemanTheme.ORANGE_LIGHT],
                         )
                         fig_eps_val.update_traces(
                             textposition="inside", textinfo="percent",
@@ -234,8 +235,9 @@ def render_billing_electronic_section():
                         )
                         fig_eps_val.update_layout(
                             height=300, margin=dict(l=0, r=0, t=0, b=0),
-                            paper_bgcolor="white", font=dict(color="#1A2A45"),
-                            showlegend=True, legend=dict(orientation="h", y=-0.1),
+                            paper_bgcolor=GolemanTheme.WHITE, font=dict(color=GolemanTheme.TEXT, size=11),
+                            showlegend=True, legend=dict(orientation="h", y=-0.1,
+                                                         font=dict(size=10, color=GolemanTheme.MUTED)),
                         )
                         st.plotly_chart(fig_eps_val, use_container_width=True, config={"displayModeBar": False})
 
@@ -367,7 +369,4 @@ def render_billing_electronic_section():
             else:
                 show_info_message("No hay registros en esta pagina.")
 
-    # ── Export section ──
-    from frontend.components.export_panel import render_export_section
-    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-    render_export_section("billing", allow_user_filter=True)
+

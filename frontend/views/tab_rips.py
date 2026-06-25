@@ -159,7 +159,4 @@ def _render_charts_and_tables(metrics):
                 st.plotly_chart(fig, use_container_width=True)
             st.dataframe(date_df, use_container_width=True)
 
-    # ── Export section ──
-    from frontend.components.export_panel import render_export_section
-    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-    render_export_section("rips", allow_user_filter=True)
+

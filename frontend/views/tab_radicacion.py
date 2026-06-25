@@ -12,8 +12,6 @@ from datetime import date, timedelta
 import pandas as pd
 import streamlit as st
 
-from backend.app.etl.billers_processor import resolve_document_to_name
-from backend.app.etl.loaders import load_billers_master_cached
 from frontend.components.visualizations import (
     plot_rad_donut,
     plot_rad_distribucion_antiguedad,
@@ -28,6 +26,18 @@ from ui.goleman_theme import GolemanTheme
 
 ALL_OPTION = "Todos"
 RADICACION_THRESHOLD = 2
+
+
+def _resolve_document_to_name(billers_df, document_value):
+    if billers_df is None or billers_df.empty:
+        return str(document_value)
+    if "DOCUMENTO" not in billers_df.columns or "NOMBRE" not in billers_df.columns:
+        return str(document_value)
+    doc_str = str(document_value).strip()
+    match = billers_df[billers_df["DOCUMENTO"].astype(str).str.strip() == doc_str]
+    if match.empty:
+        return str(document_value)
+    return str(match.iloc[0]["NOMBRE"])
 
 COLOR_DENTRO = GolemanTheme.SUCCESS
 COLOR_PROXIMO = GolemanTheme.ORANGE
@@ -428,8 +438,8 @@ def render_tab_radicacion():
         if role not in ("ADMIN", "SUPERVISOR"):
             user_doc = user.get("document")
             if user_doc:
-                billers_df = load_billers_master_cached()
-                biller_name = resolve_document_to_name(billers_df, user_doc)
+                billers_df = st.session_state.get("billers_df")
+                biller_name = _resolve_document_to_name(billers_df, user_doc)
                 if biller_name and biller_name != str(user_doc):
                     user_col = next((c for c in ["USUARIO"] if c in df_radicacion.columns), None)
                     if user_col:
@@ -523,10 +533,7 @@ def render_tab_radicacion():
         _section_title("Facturas criticas (vencidas ordenadas por antiguedad)")
         _render_critical_invoices(df_radicacion)
 
-    # ── Export section ──
-    from frontend.components.export_panel import render_export_section
-    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-    render_export_section("radicacion", allow_user_filter=True)
+
 
     # Renderizar insights
     _render_insights(total, vencidas, cumplimiento, df_by_user, df_radicacion)

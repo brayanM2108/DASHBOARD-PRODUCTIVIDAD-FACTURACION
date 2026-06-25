@@ -14,6 +14,7 @@ from frontend.components.visualizations import (
     any_viz_filter_active,
 )
 from frontend.services.manual_billing_service import ManualBillingFrontendService
+from frontend.services.process_config_service import ProcessConfigFrontendService
 from frontend.components.components import (
     show_error_message,
     show_warning_message,
@@ -100,14 +101,26 @@ def _render_records_table(service: ManualBillingFrontendService, records, df: pd
         st.rerun()
 
 
-_PROCESS_OPTIONS = [
+_DEFAULT_PROCESS_OPTIONS = [
     "AUDITAR CUENTAS",
     "RADICAR CUENTAS",
     "DESCARGAR SOPORTES",
     "VALIDAR RIPS",
-    "SOLICITUD DE AUTORIZACIONES",
-    "ARMADO DE CUENTAS",
+    "UNIFICAR SOPORTES",
+    "DESCARGAR AUTORIZACIONES",
 ]
+
+
+def _get_process_options() -> list[str]:
+    try:
+        service = ProcessConfigFrontendService()
+        config = service.get_config()
+        names = [p.get("name", "") for p in config.get("processes", []) if p.get("name")]
+        if names:
+            return names
+    except Exception:
+        pass
+    return _DEFAULT_PROCESS_OPTIONS
 
 
 def _render_registration_form(service: ManualBillingFrontendService):
@@ -116,7 +129,7 @@ def _render_registration_form(service: ManualBillingFrontendService):
         with col_fecha:
             fecha = st.date_input("Fecha", value=date.today())
         with col_proceso:
-            proceso = st.selectbox("Proceso", options=_PROCESS_OPTIONS, key="mb_proceso_sel")
+            proceso = st.selectbox("Proceso", options=_get_process_options(), key="mb_proceso_sel")
         with col_cantidad:
             cantidad = st.number_input("Cantidad", min_value=1, step=1)
         observacion = st.text_area("Observacion (opcional)", max_chars=500)
@@ -154,14 +167,14 @@ def render_tab_manual_billing():
 
     records = st.session_state["_mb_records"]
 
-    st.markdown(
-        """
-        <div class="g-tab-header">
-          <div class="g-tab-header-title"><span>⚙️</span>Procesos Administrativos</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    from frontend.components.sidebar import _get_logo_b64
+    logo = _get_logo_b64()
+    st.markdown(f"""
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
+      <img src="data:image/svg+xml;base64,{logo}" style="width:44px;height:auto;flex-shrink:0;border-radius:8px"/>
+      <div style="font-size:20px;font-weight:700;color:{GolemanTheme.NAVY}">Procesos Administrativos</div>
+    </div>
+    """, unsafe_allow_html=True)
 
     if not records:
         st.markdown(
@@ -202,7 +215,4 @@ def render_tab_manual_billing():
     _section_title("Registros")
     _render_records_table(service, records, df)
 
-    # ── Export section ──
-    from frontend.components.export_panel import render_export_section
-    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-    render_export_section("processes", allow_user_filter=True)
+

@@ -70,16 +70,14 @@ class HomePage:
         cls._render_compliance_ranking_row_admin(data)
         cls._render_alerts_insights_row_admin(data)
 
-        # ── Export section (admin only) ──
-        from frontend.components.export_panel import render_export_section
-        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-        render_export_section("general", allow_user_filter=True)
 
     @classmethod
     def _render_hero_admin(cls, nombre: str, rol: str, hoy: datetime, data: HomeAdminResponse):
         leg_count = data.modules.legalizaciones
         valor = data.kpis.total_valor_tercero
         compliance = data.kpis.compliance
+        horas_eq = data.kpis.horas_productivas_equipo
+        cumpl_horas = data.kpis.cumplimiento_horas
 
         def _fmt_money(v):
             if abs(v) >= 1_000_000_000:
@@ -119,6 +117,7 @@ class HomePage:
             {cls._hero_stat("Legalizaciones", f"{leg_count:,}")}
             {cls._hero_stat("Valor Facturado", _fmt_money(valor), accent=True)}
             {cls._hero_stat("Cumplimiento", f"{compliance:.0f}%")}
+            {cls._hero_stat("Horas equipo", f"{horas_eq:.0f}h", accent=False)}
           </div>
         </div>
         """, unsafe_allow_html=True)
@@ -144,7 +143,7 @@ class HomePage:
                 return f"${v / 1_000_000:,.1f}M"
             return f"${v:,.0f}"
 
-        k1, k2, k3, k4, k5 = st.columns(5)
+        k1, k2, k3, k4, k5, k6 = st.columns(6)
         with k1:
             st.metric("Total registros", f"{data.kpis.total_records:,}")
         with k2:
@@ -155,6 +154,8 @@ class HomePage:
             st.metric("Valor facturado", _fmt_money(data.kpis.total_valor_tercero))
         with k5:
             st.metric("Cumplimiento", f"{data.kpis.compliance:.0f}%")
+        with k6:
+            st.metric("Productividad", f"{data.kpis.cumplimiento_horas:.0f}%")
 
     @classmethod
     def _render_charts_row_admin(cls, data: HomeAdminResponse):
@@ -284,11 +285,12 @@ class HomePage:
         colors = [GolemanTheme.BLUE, GolemanTheme.NAVY2, GolemanTheme.ORANGE, GolemanTheme.SUCCESS, GolemanTheme.MUTED]
         fig = go.Figure()
         for i, user in enumerate(top_users):
+            horas = getattr(user, "horas_productivas", 0.0)
             fig.add_trace(go.Bar(
                 y=[user.usuario], x=[user.registros],
                 orientation="h", marker=dict(color=colors[i % len(colors)], cornerradius=4),
-                text=[f"{user.registros:,}"], textposition="outside",
-                hovertemplate=f"%{{y}}: %{{x:,}} registros<extra></extra>",
+                text=[f"{user.registros:,} reg"], textposition="outside",
+                hovertemplate=f"%{{y}}<br>%{{x:,}} registros<br>{horas:.1f}h productivas<extra></extra>",
                 showlegend=False,
             ))
         fig.update_layout(
@@ -404,6 +406,21 @@ class HomePage:
 
     @classmethod
     def _render_hero_user(cls, username: str, role: str, hoy: datetime, data: HomeUserResponse):
+        horas = data.kpis.horas_productivas
+        esperadas = data.kpis.horas_esperadas
+        cumpl = data.kpis.cumplimiento_horas
+        pct_bar = min(cumpl, 100)
+
+        horas_stat_html = f"""
+        <div style="background:rgba(249,120,56,.1);border:0.5px solid rgba(249,120,56,.3);border-radius:10px;
+                    padding:10px 14px;text-align:center;min-width:130px">
+          <div style="font-size:18px;font-weight:600;color:#F97838">{horas:.1f}h</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px;white-space:nowrap">de {esperadas:.0f}h ({cumpl:.0f}%)</div>
+          <div style="margin-top:6px;height:4px;background:rgba(255,255,255,.15);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:{pct_bar:.0f}%;background:#F97838;border-radius:3px"></div>
+          </div>
+        </div>"""
+
         st.markdown(f"""
         <div style="
             background:{GolemanTheme.NAVY};
@@ -430,10 +447,10 @@ class HomePage:
               {hoy.strftime('%A %d de %B de %Y').capitalize()}
             </div>
           </div>
-          <div style="display:flex;gap:12px;position:relative;z-index:1">
+          <div style="display:flex;gap:12px;position:relative;z-index:1;align-items:center">
             {cls._hero_stat("Registros hoy", f"{data.kpis.registros_hoy:,}")}
             {cls._hero_stat("Radic. pendientes", f"{data.kpis.radicaciones_pendientes:,}")}
-            {cls._hero_stat("Horas productivas", f"{data.kpis.horas_productivas:.1f}h", accent=True)}
+            {horas_stat_html}
           </div>
         </div>
         """, unsafe_allow_html=True)
@@ -447,7 +464,7 @@ class HomePage:
                 return f"${v / 1_000_000:,.1f}M"
             return f"${v:,.0f}"
 
-        k1, k2, k3, k4, k5 = st.columns(5)
+        k1, k2, k3, k4, k5, k6 = st.columns(6)
         with k1:
             st.metric("Legalizaciones", f"{data.modules.legalizaciones:,}")
         with k2:
@@ -458,6 +475,8 @@ class HomePage:
             st.metric("Radicacion", f"{data.modules.radicacion:,}")
         with k5:
             st.metric("Procesos", f"{data.modules.procesos:,}")
+        with k6:
+            st.metric("Productividad", f"{data.kpis.cumplimiento_horas:.0f}%")
 
     @classmethod
     def _render_charts_row_user(cls, data: HomeUserResponse):

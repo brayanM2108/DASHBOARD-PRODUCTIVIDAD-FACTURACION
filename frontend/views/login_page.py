@@ -9,7 +9,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from frontend.exceptions import ApiException, UnauthorizedException
+from frontend.exceptions import ApiException, UnauthorizedException, UserNotActiveException
 from frontend.services.auth_service import AuthFrontendService
 from ui.goleman_theme import GolemanTheme
 
@@ -295,6 +295,8 @@ def _render_layout() -> None:
                     service.login(email, password)
                     st.rerun()
 
+                except UserNotActiveException:
+                    st.error("Tu cuenta no está activa. Contacta al administrador.")
                 except UnauthorizedException:
                     st.error("Credenciales inválidas. Verifica tu correo y contraseña.")
                 except ApiException as e:

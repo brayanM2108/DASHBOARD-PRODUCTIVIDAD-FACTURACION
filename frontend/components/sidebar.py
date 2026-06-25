@@ -12,7 +12,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from backend.app.etl.loaders import load_all_persisted_frames
+from frontend.api.data_api import DataApi
 from frontend.services.auth_service import AuthFrontendService
 
 
@@ -85,16 +85,15 @@ def _get_initials(name: str) -> str:
 
 
 def _reload_data() -> None:
-    data = load_all_persisted_frames()
-    st.session_state.update({
-        "legalizations_df":            data.get("legalizations_df"),
-        "rips_df":                     data.get("rips_df"),
-        "electronic_billing_df":       data.get("electronic_billing_df"),
-        "billers_df":                  data.get("billers_df"),
-        "administrative_processes_df": data.get("administrative_processes_df"),
-        "ultima_actualizacion":        pd.Timestamp.now().strftime("%d/%m/%Y %H:%M"),
-    })
-    st.cache_data.clear()
+    try:
+        data = DataApi().load()
+    except Exception:
+        st.error("No se pudieron recargar los datos.")
+        return
+    for key in ("legalizations_df", "rips_df", "electronic_billing_df",
+                "billers_df", "administrative_processes_df"):
+        st.session_state[key] = data.get(key)
+    st.session_state["ultima_actualizacion"] = pd.Timestamp.now().strftime("%d/%m/%Y %H:%M")
     st.rerun()
 
 

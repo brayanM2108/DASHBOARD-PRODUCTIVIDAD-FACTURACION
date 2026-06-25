@@ -10,6 +10,8 @@ class HomeAdminKpis:
     active_users: int = 0
     total_valor_tercero: float = 0.0
     compliance: float = 0.0
+    horas_productivas_equipo: float = 0.0
+    cumplimiento_horas: float = 0.0
 
 
 @dataclass
@@ -35,6 +37,7 @@ class HomeAdminTrendPoint:
 class HomeAdminTopUser:
     usuario: str = ""
     registros: int = 0
+    horas_productivas: float = 0.0
 
 
 @dataclass
@@ -73,6 +76,8 @@ class HomeUserKpis:
     registros_hoy: int = 0
     radicaciones_pendientes: int = 0
     horas_productivas: float = 0.0
+    horas_esperadas: float = 0.0
+    cumplimiento_horas: float = 0.0
 
 
 @dataclass

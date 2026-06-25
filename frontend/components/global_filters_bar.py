@@ -10,7 +10,7 @@ from frontend.components.filters import render_role_user_filter
 
 
 def _derive_date_bounds() -> tuple:
-    min_date = pd.Timestamp("2020-01-01").date()
+    min_date = pd.Timestamp("2026-01-01").date()
     max_date = pd.Timestamp.now().date()
     date_cols = ("FECHA", "fecha", "FECHA_SERVICIO", "FECHA FACTURA", "FECHA_COMPLETADO_RIPS")
 
@@ -45,18 +45,24 @@ def render_global_filters_bar() -> None:
         cols = st.columns([2, 2, 3, 2], gap="small")
 
         with cols[0]:
+            default_start = st.session_state.get("global_start_date")
+            if default_start is None or default_start < min_date or default_start > max_date:
+                default_start = min_date
             st.session_state["global_start_date"] = st.date_input(
                 "Fecha inicio",
-                value=st.session_state.get("global_start_date", min_date),
+                value=default_start,
                 min_value=min_date,
                 max_value=max_date,
                 key="gf_start",
             )
 
         with cols[1]:
+            default_end = st.session_state.get("global_end_date")
+            if default_end is None or default_end < min_date or default_end > max_date:
+                default_end = max_date
             st.session_state["global_end_date"] = st.date_input(
                 "Fecha fin",
-                value=st.session_state.get("global_end_date", max_date),
+                value=default_end,
                 min_value=min_date,
                 max_value=max_date,
                 key="gf_end",

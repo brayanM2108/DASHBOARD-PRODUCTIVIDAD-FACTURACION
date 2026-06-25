@@ -28,7 +28,7 @@ from .theme.expanders_css import CSS_EXPANDERS
 from .theme.progress_css import CSS_PROGRESS
 from .theme.auth_css import CSS_AUTH
 from .theme.helpers_css import CSS_HELPERS
-from .theme.global_filters_css import CSS_GLOBAL_FILTERS
+from .theme.global_filters_css import CSS_ADMIN_REPORT_CARDS, CSS_ADMIN_REPORT_FILTERS, CSS_GLOBAL_FILTERS
 from .theme.user_card_css import CSS_USER_CARD
 from .theme.navigation_css import CSS_NAVIGATION
 from .theme.sidebar_badges_css import CSS_SIDEBAR_BADGES
@@ -81,6 +81,8 @@ class GolemanTheme:
         "badges":      CSS_SIDEBAR_BADGES,
         "filter_panel":   CSS_FILTER_PANEL,
         "global_filters": CSS_GLOBAL_FILTERS,
+        "admin_report_filters": CSS_ADMIN_REPORT_FILTERS,
+        "admin_report_cards": CSS_ADMIN_REPORT_CARDS,
         "actions":        CSS_ACTIONS,
     }
 
@@ -96,7 +98,7 @@ class GolemanTheme:
         blocks = [
             CSS_GLOBAL, CSS_TABS, CSS_METRICS, CSS_BUTTONS,
             CSS_FORMS, CSS_TABLES, CSS_ALERTS, CSS_EXPANDERS,
-            CSS_PROGRESS, CSS_HELPERS, CSS_GLOBAL_FILTERS,
+            CSS_PROGRESS, CSS_HELPERS, CSS_GLOBAL_FILTERS, CSS_ADMIN_REPORT_FILTERS, CSS_ADMIN_REPORT_CARDS,
         ]
         if sidebar:
             blocks.extend([

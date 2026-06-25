@@ -6,38 +6,16 @@ Paleta y estilos desde GolemanTheme.
 import pandas as pd
 import streamlit as st
 
-from backend.app.etl.loaders import (
-    load_billers_master_cached,
-    load_uploaded_dataframe,
-    save_all_persisted_frames,
-)
-from backend.app.etl.transformers import process_electronic_billing_data
-from backend.app.services.legalizations_service import process_legalizations
-from backend.app.services.rips_service import process_rips
-from backend.app.utils.config.settings import COLUMN_MARKERS
+from frontend.api.data_api import DataApi
 from frontend.components.components import show_error_message, show_success_message, show_warning_message
 from ui.goleman_theme import GolemanTheme
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Wrappers de procesamiento (adaptan la API existente a la interfaz unificada)
-# ─────────────────────────────────────────────────────────────────────────────
-
-def _process_legalizations_wrapper(df: pd.DataFrame) -> pd.DataFrame | None:
-    result = process_legalizations(df, st.session_state.get("billers_df"))
-    if result.get("error"):
-        st.error(f"Error en validación: {result['error']}")
-        return None
-    return result.get("legalizations_df")
-
-
-def _process_rips_wrapper(df: pd.DataFrame) -> pd.DataFrame | None:
-    result = process_rips(df, st.session_state.get("billers_df"))
-    if result.get("error"):
-        st.error(f"Error en validación: {result['error']}")
-        return None
-    return result.get("rips_df")
-
+_FILE_KEY_MAP = {
+    "legalizations_df": "Legalizaciones",
+    "electronic_billing_df": "FacturacionElectronica",
+    "rips_df": "Rips",
+    "billers_df": "Facturadores",
+}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Configuración de módulos de carga
@@ -53,8 +31,6 @@ _UPLOAD_MODULES = [
                 "key":      "legalizations_df",
                 "label":    "Legalizaciones (PPL + Convenios)",
                 "hint":     "",
-                "process":  _process_legalizations_wrapper,
-                "marker":   COLUMN_MARKERS["legalizaciones"],
             },
         ],
     },
@@ -67,8 +43,6 @@ _UPLOAD_MODULES = [
                 "key":      "electronic_billing_df",
                 "label":    "Facturación Electrónica",
                 "hint":     "",
-                "process":  process_electronic_billing_data,
-                "marker":   COLUMN_MARKERS["facturacion_electronica"],
             },
         ],
     },
@@ -81,8 +55,6 @@ _UPLOAD_MODULES = [
                 "key":      "rips_df",
                 "label":    "RIPS",
                 "hint":     "Registros individuales de prestación de servicios",
-                "process":  _process_rips_wrapper,
-                "marker":   COLUMN_MARKERS["rips"],
             },
         ],
     },
@@ -94,10 +66,8 @@ _UPLOAD_MODULES = [
             {
                 "key":      "billers_df",
                 "label":    "Archivo de facturadores",
-                "hint":     "Se carga automáticamente desde FACTURADORES.xlsx",
-                "process":  None,
+                "hint":     "Se gestiona desde el Panel Admin",
                 "optional": True,
-                "marker":   None,
             },
         ],
     },
@@ -215,12 +185,47 @@ def _render_status_strip():
 # Sección: zonas de carga
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _reload_dataset(key: str) -> None:
+    api = DataApi()
+    try:
+        result = api.load_dataset(key)
+        if result.get("data"):
+            st.session_state[key] = pd.DataFrame(result["data"])
+            st.session_state["ultima_actualizacion"] = pd.Timestamp.now().strftime("%d/%m/%Y %H:%M")
+        else:
+            st.session_state[key] = None
+    except Exception as e:
+        show_error_message(f"Error al recargar datos: {e}")
+
+
+def _reload_all_datasets() -> None:
+    api = DataApi()
+    with st.spinner("Recargando todos los datasets..."):
+        try:
+            result = api.load(include_data=True)
+        except Exception as e:
+            show_error_message(f"Error al recargar datos: {e}")
+            return
+
+    _keys = ("legalizations_df", "rips_df", "billers_df",
+             "electronic_billing_df", "administrative_processes_df")
+    loaded = 0
+    for key in _keys:
+        entry = result.get(key)
+        if entry and entry.get("data"):
+            st.session_state[key] = pd.DataFrame(entry["data"])
+            loaded += 1
+        else:
+            st.session_state[key] = None
+
+    st.session_state["ultima_actualizacion"] = pd.Timestamp.now().strftime("%d/%m/%Y %H:%M")
+    show_success_message(f"{loaded} datasets recargados.")
+
+
 def _render_upload_zone(file_cfg: dict):
     key      = file_cfg["key"]
     label    = file_cfg["label"]
     hint     = file_cfg["hint"]
-    process  = file_cfg.get("process")
-    marker   = file_cfg.get("marker")
     optional = file_cfg.get("optional", False)
 
     df_actual = st.session_state.get(key)
@@ -248,15 +253,12 @@ def _render_upload_zone(file_cfg: dict):
     if key == "billers_df":
         if st.button("\u21bb Recargar Facturadores", key="btn_reload_fact", use_container_width=True):
             with st.spinner("Recargando facturadores..."):
-                df_facturadores = load_billers_master_cached()
-                if df_facturadores is None:
-                    show_error_message("No se pudo cargar el archivo de facturadores.")
-                else:
-                    st.session_state["billers_df"] = df_facturadores
-                    save_all_persisted_frames({"billers": df_facturadores})
-                    st.cache_data.clear()
+                try:
+                    _reload_dataset("billers_df")
                     show_success_message("Facturadores recargados correctamente.")
                     st.rerun()
+                except Exception:
+                    show_error_message("No se pudo cargar el archivo de facturadores.")
         return
 
     uploaded = st.file_uploader(
@@ -275,29 +277,32 @@ def _render_upload_zone(file_cfg: dict):
             upload_ok = False
             with st.spinner(f"Procesando {uploaded.name}\u2026"):
                 try:
-                    df_raw = load_uploaded_dataframe(uploaded, marker)
-                    if df_raw is None:
-                        show_error_message(f"Error al cargar el archivo. No se encontr\u00f3 la columna marcadora esperada.")
-                        return
+                    api = DataApi()
+                    file_bytes = uploaded.getvalue()
 
-                    df_processed = process(df_raw) if process else df_raw
-
-                    if df_processed is None or df_processed.empty:
-                        show_warning_message("El archivo no contiene datos v\u00e1lidos.")
+                    if key == "billers_df":
+                        result = api.upload_billers(file_bytes, uploaded.name)
                     else:
-                        st.session_state[key] = df_processed
-                        st.session_state["ultima_actualizacion"] = (
-                            pd.Timestamp.now().strftime("%d/%m/%Y %H:%M")
-                        )
-                        save_all_persisted_frames({key: df_processed})
-                        st.cache_data.clear()
+                        result = api.upload(file_bytes, uploaded.name, key)
+
+                    records = result.get("records", 0)
+                    if records > 0:
+                        _reload_dataset(key)
                         show_success_message(
-                            f"{uploaded.name} cargado \u2014 {len(df_processed):,} registros."
+                            f"{uploaded.name} cargado \u2014 {records:,} registros."
                         )
                         upload_ok = True
+                    else:
+                        show_warning_message("El archivo no contiene datos v\u00e1lidos.")
 
                 except Exception as e:
-                    show_error_message(f"Error al procesar {uploaded.name}: {e}")
+                    detail = str(e)
+                    if hasattr(e, "response") and e.response is not None:
+                        try:
+                            detail = e.response.json().get("detail", detail)
+                        except Exception:
+                            pass
+                    show_error_message(f"Error al procesar {uploaded.name}: {detail}")
 
             if upload_ok:
                 st.session_state[f"_last_processed_{key}"] = file_fingerprint
@@ -352,15 +357,15 @@ def _render_clear_data():
     col1, col2 = st.columns(2)
     with col1:
         if st.button("\u2716 Limpiar Legalizaciones", key="btn_clear_leg", use_container_width=True):
-            _clear_data_type(["legalizations_df"], ["Legalizaciones"], "Legalizaciones")
+            _clear_data_type(["legalizations_df"], "Legalizaciones", "Legalizaciones")
     with col2:
         if st.button("\u2716 Limpiar Fact. Electr\u00f3nica", key="btn_clear_fact_elec", use_container_width=True):
-            _clear_data_type(["electronic_billing_df"], ["FacturacionElectronica"], "Facturaci\u00f3n Electr\u00f3nica")
+            _clear_data_type(["electronic_billing_df"], "FacturacionElectronica", "Facturaci\u00f3n Electr\u00f3nica")
 
     col3, col4 = st.columns(2)
     with col3:
         if st.button("\u2716 Limpiar RIPS", key="btn_clear_rips", use_container_width=True):
-            _clear_data_type(["rips_df"], ["Rips"], "RIPS")
+            _clear_data_type(["rips_df"], "Rips", "RIPS")
     with col4:
         pass
 
@@ -369,31 +374,22 @@ def _render_clear_data():
         _clear_all_data()
 
 
-def _clear_data_type(session_keys, file_keys, nombre):
-    import os
-    from backend.app.utils.config.settings import FILES
-
+def _clear_data_type(session_keys, file_key, nombre):
     for key in session_keys:
         if key in st.session_state:
             st.session_state[key] = None
 
-    for file_key in file_keys:
-        if file_key in FILES and os.path.exists(FILES[file_key]):
-            try:
-                os.remove(FILES[file_key])
-            except Exception as e:
-                show_error_message(f"Error al eliminar archivo: {e}")
-                return
+    try:
+        DataApi().delete(file_key)
+    except Exception as e:
+        show_error_message(f"Error al eliminar archivo: {e}")
+        return
 
-    st.cache_data.clear()
     show_success_message(f"{nombre} limpiados correctamente.")
     st.rerun()
 
 
 def _clear_all_data():
-    import os
-    from backend.app.utils.config.settings import FILES
-
     keys_to_clear = [
         "legalizations_df",
         "billing_df",
@@ -408,14 +404,11 @@ def _clear_all_data():
 
     files_to_delete = ["Legalizaciones", "Facturacion", "FacturacionElectronica", "ArchivoProcesos", "Rips"]
     for file_key in files_to_delete:
-        if file_key in FILES and os.path.exists(FILES[file_key]):
-            try:
-                os.remove(FILES[file_key])
-            except Exception as e:
-                show_error_message(f"Error al eliminar {file_key}: {e}")
-                return
+        try:
+            DataApi().delete(file_key)
+        except Exception:
+            pass
 
-    st.cache_data.clear()
     show_success_message("Todos los datos han sido limpiados correctamente.")
     st.rerun()
 
@@ -443,7 +436,7 @@ def render_file_upload_section():
             type="primary",
             key="btn_reload_all",
         ):
-            st.rerun()
+            _reload_all_datasets()
 
     # ── Strip de estado ──────────────────────────────────────────────────────
     _render_status_strip()

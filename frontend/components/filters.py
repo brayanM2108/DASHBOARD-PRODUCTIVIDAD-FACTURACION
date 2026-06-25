@@ -4,18 +4,19 @@ Filters and sidebar helpers
 Reusable filtering components for the dashboard UI.
 """
 
+from datetime import date, timedelta
+
 import pandas as pd
 import streamlit as st
-
-from backend.app.etl.utils.date_helpers import get_default_date_range
-from backend.app.services.billers_service import get_billers_list
 
 
 def render_date_filter(key_prefix=""):
     """
     Render an independent date range filter.
     """
-    start_date_default, end_date_default = get_default_date_range(30)
+    today = date.today()
+    start_date_default = today - timedelta(days=30)
+    end_date_default = today
 
     col1, col2 = st.columns(2)
     with col1:
@@ -38,7 +39,17 @@ def render_user_filter(df_facturadores, key_prefix=""):
     """
     Render an independent biller/user filter.
     """
-    billers_list = get_billers_list(df_facturadores)
+    if df_facturadores is not None and not df_facturadores.empty and "NOMBRE" in df_facturadores.columns:
+        billers_list = sorted(
+            df_facturadores["NOMBRE"]
+            .dropna()
+            .astype(str)
+            .str.strip()
+            .str.upper()
+            .unique()
+        )
+    else:
+        billers_list = []
 
     if not billers_list:
         st.info("No hay facturadores disponibles.")

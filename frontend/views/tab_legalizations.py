@@ -40,11 +40,15 @@ def render_tab_legalizations():
         return
 
     service = LegalizationsService()
-    metrics = service.get_metrics(
-        start_date=start_date,
-        end_date=end_date,
-        selected_users=selected_users,
-    )
+    try:
+        metrics = service.get_metrics(
+            start_date=start_date,
+            end_date=end_date,
+            selected_users=selected_users,
+        )
+    except Exception as e:
+        st.warning(str(e))
+        return
 
     if metrics.error:
         st.error(metrics.error)
@@ -58,10 +62,6 @@ def render_tab_legalizations():
     with tab_agreements:
         _render_productivity_section(metrics=metrics.agreements, title="Legalizaciones Convenios")
 
-    # ── Export section (una sola vez, fuera de los tabs internos) ──
-    from frontend.components.export_panel import render_export_section
-    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-    render_export_section("legalizations", allow_user_filter=True)
 
 
 def _render_productivity_section(metrics, title: str):
