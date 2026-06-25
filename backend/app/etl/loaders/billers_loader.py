@@ -1,13 +1,17 @@
 """Billers master data loader."""
 
 import io
+import json
+import logging
 from collections.abc import Mapping
 from typing import Any
 
 import pandas as pd
 
 from ..utils.dataframe_helpers import normalize_columns_upper_in_place
-from ...utils.config.settings import FACTURADORES_FILE, FACTURADORES_SHEET
+from ...utils.config.settings import FACTURADORES_FILE
+
+logger = logging.getLogger(__name__)
 
 
 def normalize_billers_document_column(df: pd.DataFrame) -> pd.DataFrame:
@@ -38,24 +42,40 @@ def load_billers_from_secrets(secrets_source: Mapping[str, Any] | None = None) -
             df = normalize_columns_upper_in_place(df)
             return normalize_billers_document_column(df)
 
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed to load billers from secrets: %s", e)
         return None
 
     return None
 
 
 def load_billers_from_file() -> pd.DataFrame | None:
-    """Load billers master dataset from local Excel file."""
+    """Load billers master dataset from local JSON file."""
     try:
-        df = pd.read_excel(FACTURADORES_FILE, sheet_name=FACTURADORES_SHEET)
+        with open(FACTURADORES_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        df = pd.DataFrame(data)
         df = normalize_columns_upper_in_place(df)
         return normalize_billers_document_column(df)
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed to load billers from file: %s", e)
         return None
 
 
+def save_billers_to_file(df: pd.DataFrame) -> bool:
+    """Persist billers dataframe to the JSON file."""
+    try:
+        data = df.to_dict(orient="records")
+        with open(FACTURADORES_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        logger.error("Failed to save billers to file: %s", e)
+        return False
+
+
 def load_billers_master(secrets_source: Mapping[str, Any] | None = None) -> pd.DataFrame | None:
-    """Load billers master data from injected secrets first, then local Excel."""
+    """Load billers master data from injected secrets first, then local JSON."""
     df = load_billers_from_secrets(secrets_source=secrets_source)
     if df is not None:
         return df
