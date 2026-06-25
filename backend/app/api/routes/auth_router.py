@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+import logging
 from jose import jwt
 from ...services.auth_service import AuthService
-from ..schemas.auth import Token, LoginRequest, RegisterRequest, RefreshTokenRequest
+from ..schemas.auth import Token, LoginRequest, RegisterRequest, RefreshTokenRequest, ChangePasswordRequest, AdminResetPasswordRequest
 from ..schemas.user import UserOut
 from ..deps import get_auth_service, get_current_user
 from ...core.config import settings
@@ -34,6 +35,7 @@ def login(
             "document": user.document,
             "role": user.role,
             "is_active": user.is_active,
+            "must_change_password": user.must_change_password,
         },
     }
 
@@ -60,6 +62,7 @@ def register(
             "email": user.email,
             "role": user.role,
             "is_active": user.is_active,
+            "must_change_password": user.must_change_password,
         },
     }
 
@@ -69,10 +72,9 @@ def refresh(
     payload: RefreshTokenRequest,
     auth_service: AuthService = Depends(get_auth_service),
 ):
-    print(f"[AUTH_ROUTER] Recibida petición de refresh")
     try:
         user, access_token, refresh_token = auth_service.refresh(payload.refresh_token)
-        print(f"[AUTH_ROUTER] Refresh exitoso para usuario: {user.username}")
+        logging.getLogger(__name__).info("Refresh successful for user: %s", user.username)
         return {
             "access_token": access_token,
             "refresh_token": refresh_token,
@@ -81,12 +83,13 @@ def refresh(
                 "id": user.id,
                 "username": user.username,
                 "email": user.email,
-                "role": user.role,
-                "is_active": user.is_active,
-            },
-        }
+            "role": user.role,
+            "is_active": user.is_active,
+            "must_change_password": user.must_change_password,
+        },
+    }
     except Exception as e:
-        print(f"[AUTH_ROUTER] Error en refresh: {type(e).__name__}: {e}")
+        logging.getLogger(__name__).error("Refresh failed: %s: %s", type(e).__name__, e)
         raise
 
 
@@ -104,11 +107,31 @@ def logout(
         email = payload.get("sub")
         if email:
             auth_service.revoke_refresh_token(email)
-    except Exception:
-        pass
+    except Exception as e:
+        logging.getLogger(__name__).debug("Token revoke skipped: %s", e)
     return {"message": "Sesión cerrada correctamente"}
 
 
 @router.get("/me", response_model=UserOut)
 def me(current_user=Depends(get_current_user)):
     return current_user
+
+
+@router.post("/change-password")
+def change_password(
+    payload: ChangePasswordRequest,
+    current_user=Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    auth_service.change_password(current_user, payload.new_password)
+    return {"message": "Contraseña cambiada correctamente"}
+
+
+@router.post("/admin/reset-password")
+def admin_reset_password(
+    payload: AdminResetPasswordRequest,
+    current_user=Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    result = auth_service.admin_reset_password(current_user, payload.user_id, payload.new_password)
+    return result

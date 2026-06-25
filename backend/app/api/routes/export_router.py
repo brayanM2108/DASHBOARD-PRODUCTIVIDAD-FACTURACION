@@ -4,6 +4,7 @@ Export Router — Download Excel reports
 Endpoints that generate and return Excel files for download.
 """
 
+import logging
 import pandas as pd
 from datetime import date, timedelta
 from io import BytesIO
@@ -95,11 +96,12 @@ def export_billing(
     days = (end_date - start_date).days + 1
     prev_start = start_date - timedelta(days=days)
     prev_end = start_date - timedelta(days=1)
+    logger = logging.getLogger(__name__)
     df_previous = None
     try:
         df_previous = service._load_and_filter(prev_start, prev_end, selected_users)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Billing previous period unavailable: %s", e)
 
     report = build_billing_report(df_current=df, df_previous=df_previous)
     file_bytes = export_billing_report(report, period_label=_make_period_label(start_date, end_date))
@@ -289,6 +291,7 @@ def export_general(
     selected_users = _resolve_selected_users(selected_users, forced_user)
     period_label = _make_period_label(start_date, end_date)
 
+    logger = logging.getLogger(__name__)
     days = (end_date - start_date).days + 1
     prev_start = start_date - timedelta(days=days)
     prev_end = start_date - timedelta(days=1)
@@ -300,11 +303,11 @@ def export_general(
         df_bill_prev = None
         try:
             df_bill_prev = billing_service._load_and_filter(prev_start, prev_end, selected_users)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("General export: billing previous period unavailable: %s", e)
         billing_report = build_billing_report(df_current=df_bill, df_previous=df_bill_prev)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("General export: billing section failed: %s", e)
 
     # Legalizations
     legalizations_report = None
@@ -316,8 +319,8 @@ def export_general(
             legalizations_current=df_leg_filtered,
             legalizations_previous=df_leg_prev,
         )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("General export: legalizations section failed: %s", e)
 
     # RIPS
     rips_report = None
@@ -326,8 +329,8 @@ def export_general(
         df_rips_filtered = filter_rips(df_rips, start_date, end_date, selected_users)
         df_rips_prev = filter_rips(df_rips, prev_start, prev_end, selected_users)
         rips_report = build_rips_report(df_current=df_rips_filtered, df_previous=df_rips_prev)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("General export: RIPS section failed: %s", e)
 
     # Radicación
     radicacion_report = None
@@ -349,8 +352,8 @@ def export_general(
             df_rad_prev = df_rad_prev[df_rad_prev[fecha_col].dt.date >= prev_start]
             df_rad_prev = df_rad_prev[df_rad_prev[fecha_col].dt.date <= prev_end]
         radicacion_report = build_radicacion_report(df_current=df_rad_prepared, df_previous=df_rad_prev)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("General export: radicacion section failed: %s", e)
 
     # Processes
     processes_report = None
@@ -385,8 +388,8 @@ def export_general(
             df_proc_prev = pd.DataFrame(prev_data)
 
         processes_report = build_processes_report(df_current=df_proc, df_previous=df_proc_prev)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("General export: processes section failed: %s", e)
 
     general_report = build_general_report(
         billing_report=billing_report,

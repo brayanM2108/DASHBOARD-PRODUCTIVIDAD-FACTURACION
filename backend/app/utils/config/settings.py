@@ -3,6 +3,7 @@ Global Productivity Dashboard Settings
 =====================================================
 Contains all constants, file paths, and settings shared by the entire application.
 """
+import logging
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -19,8 +20,7 @@ DEFAULT_PERSISTED_DATA_DIR = PROJECT_ROOT / "backend" / "persisted_data"
 PERSISTED_DATA_DIR = Path(get_env_var("PERSISTED_DATA_DIR", str(DEFAULT_PERSISTED_DATA_DIR)))
 PERSISTED_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-FACTURADORES_FILE = str(PROJECT_ROOT / "backend" / "FACTURADORES.xlsx")
-FACTURADORES_SHEET = 0
+FACTURADORES_FILE = str(Path(__file__).resolve().parent / "facturadores.json")
 PROCESOS_SHEET_URL = get_env_var("PROCESOS_SHEET_URL", "")
 
 FILES = {
@@ -84,10 +84,62 @@ VALID_STATES_RIPS = ["COMPLETO"]
 
 RADICACION_DAYS_THRESHOLD = 2
 
-SECONDS_PER_RECORD_RIPS = 45
-SECONDS_PER_RECORD_LEGALIZATIONS = 90
-SECONDS_PER_RECORD_BILLING = 45
 WORKING_HOURS_PER_DAY = 8.5
+WORKING_HOURS_PER_WEEK = 42
+
+_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "process_config.json")
+
+
+def _load_full_config() -> dict:
+    try:
+        import json as _json
+        with open(_CONFIG_PATH, "r", encoding="utf-8") as _f:
+            return _json.load(_f)
+    except Exception as e:
+        logging.getLogger(__name__).warning("Could not load process_config.json: %s", e)
+        return {}
+
+
+def _load_process_seconds() -> dict:
+    data = _load_full_config()
+    procs = data.get("processes", [])
+    if procs:
+        return {p["name"].upper(): p["seconds"] for p in procs}
+    return {
+        "AUDITAR CUENTAS": 180,
+        "DESCARGAR AUTORIZACIONES": 120,
+        "DESCARGAR SOPORTES": 60,
+        "UNIFICAR SOPORTES": 900,
+        "VALIDAR RIPS": 1200,
+        "RADICAR CUENTAS": 900,
+    }
+
+
+def _load_module_seconds() -> dict:
+    data = _load_full_config()
+    mt = data.get("module_times", {})
+    return {
+        "legalizations": mt.get("legalizations", 90),
+        "billing": mt.get("billing", 45),
+        "rips": mt.get("rips", 45),
+    }
+
+
+PROCESS_SECONDS = _load_process_seconds()
+_module_defaults = _load_module_seconds()
+SECONDS_PER_RECORD_LEGALIZATIONS = _module_defaults["legalizations"]
+SECONDS_PER_RECORD_BILLING = _module_defaults["billing"]
+SECONDS_PER_RECORD_RIPS = _module_defaults["rips"]
+
+
+def reload_config() -> tuple[dict, dict, dict]:
+    global PROCESS_SECONDS, SECONDS_PER_RECORD_LEGALIZATIONS, SECONDS_PER_RECORD_BILLING, SECONDS_PER_RECORD_RIPS
+    PROCESS_SECONDS = _load_process_seconds()
+    mt = _load_module_seconds()
+    SECONDS_PER_RECORD_LEGALIZATIONS = mt["legalizations"]
+    SECONDS_PER_RECORD_BILLING = mt["billing"]
+    SECONDS_PER_RECORD_RIPS = mt["rips"]
+    return PROCESS_SECONDS, mt
 
 PPL_NAME = "Patrimonio Autonomo Fondo Atención Salud PPL 2024"
 

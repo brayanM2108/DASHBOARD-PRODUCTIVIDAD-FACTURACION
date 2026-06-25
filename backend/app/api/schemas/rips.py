@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 
 
 class RipsByUserRecord(BaseModel):
-    USUARIO_QUE_COMPLETA_RIPS: str | None = None
+    NOMBRE_USUARIO: str | None = None
     REGISTROS: int | None = None
     TIEMPO_HORAS: float | None = None
 

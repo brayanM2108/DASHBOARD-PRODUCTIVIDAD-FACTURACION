@@ -1,11 +1,10 @@
-from prompt_toolkit import document
-
 from ..core.exceptions.auth import (
     InvalidCredentialsException,
     UserAlreadyExist,
     InvalidTokenException,
-    EmailAlreadyExist
+    EmailAlreadyExist, UserNotActivate, ForbiddenException
 )
+from ..core.exceptions.business import ValidationException
 from ..repositories.user_repository import UserRepository
 from ..core.security import (
     verify_password,
@@ -16,6 +15,11 @@ from ..core.security import (
     verify_refresh_token,
     decode_token,
 )
+from ..utils.password_generator import generate_temporary_password
+import logging
+
+logger = logging.getLogger(__name__)
+MIN_PASSWORD_LENGTH = 8
 
 
 class AuthService:
@@ -28,16 +32,16 @@ class AuthService:
             raise InvalidCredentialsException()
         if not verify_password(password, user.hashed_password):
             raise InvalidCredentialsException()
+        if not user.is_active:
+            raise UserNotActivate()
 
-        access_token = create_access_token(user.email, user.username, user.role)
-        refresh_token = create_refresh_token(user.email, user.username, user.role)
+        access_token = create_access_token(user.email, user.username, user.role, user.is_active)
+        refresh_token = create_refresh_token(user.email, user.username, user.role, user.is_active)
 
-        print(f"[AUTH] Token generado: {refresh_token[:30]}...")
         token_hash = hash_refresh_token(refresh_token)
-        print(f"[AUTH] Hash calculado: {token_hash[:20]}...")
-        
+        logger.info("Token generated for user %s", user.email)
+
         self.user_repo.update_refresh_token(user, token_hash)
-        print(f"[AUTH] Hash guardado en BD para {user.email}")
 
         return user, access_token, refresh_token
 
@@ -63,11 +67,11 @@ class AuthService:
             email=email,
             document=document,
             hashed_password=hashed,
-            role=role,
+            role=None,
         )
 
-        access_token = create_access_token(user.email, user.username, user.role)
-        refresh_token = create_refresh_token(user.email, user.username, user.role)
+        access_token = create_access_token(user.email, user.username, user.role, user.is_active)
+        refresh_token = create_refresh_token(user.email, user.username, user.role, user.is_active)
 
         self.user_repo.update_refresh_token(
             user, hash_refresh_token(refresh_token)
@@ -78,43 +82,62 @@ class AuthService:
         return user, access_token, refresh_token
 
     def refresh(self, refresh_token: str) -> tuple:
-        print(f"[BACKEND AUTH] Refresh token recibido: {refresh_token[:20]}...")
+        logger.debug("Refresh token request received")
         payload = decode_token(refresh_token)
         if not payload or payload.get("type") != "refresh":
-            print(f"[BACKEND AUTH] Token inválido o no es refresh: payload={payload}")
+            logger.warning("Invalid or non-refresh token used")
             raise InvalidTokenException()
 
         email = payload.get("sub")
         if not email:
-            print("[BACKEND AUTH] Token no tiene sub")
+            logger.warning("Refresh token missing sub claim")
             raise InvalidTokenException()
 
         user = self.user_repo.get_by_email(email)
         if not user or not user.refresh_token_hash:
-            print(f"[BACKEND AUTH] Usuario no encontrado o sin refresh_token_hash: user={user}")
+            logger.warning("User not found or no stored refresh hash for %s", email)
             raise InvalidTokenException()
-
-        incoming_hash = hash_refresh_token(refresh_token)
-        stored_hash = user.refresh_token_hash
-        print(f"[BACKEND AUTH] Hash calculado: {incoming_hash[:20]}...")
-        print(f"[BACKEND AUTH] Hash en BD: {stored_hash[:20]}...")
-        print(f"[BACKEND AUTH] ¿Coinciden? {incoming_hash == stored_hash}")
 
         if not verify_refresh_token(refresh_token, user.refresh_token_hash):
-            print(f"[BACKEND AUTH] Refresh token no coincide con el hash en BD")
+            logger.warning("Refresh token hash mismatch for %s", email)
             raise InvalidTokenException()
 
-        new_access_token = create_access_token(user.email, user.username, user.role)
-        new_refresh_token = create_refresh_token(user.email, user.username, user.role)
+        if not user.is_active:
+            raise InvalidTokenException()
+        new_access_token = create_access_token(user.email, user.username, user.role, user.is_active)
+        new_refresh_token = create_refresh_token(user.email, user.username, user.role, user.is_active)
 
         self.user_repo.update_refresh_token(
             user, hash_refresh_token(new_refresh_token)
         )
 
-        print(f"[BACKEND AUTH] Refresh exitoso para {email}")
+        logger.info("Refresh successful for %s", email)
         return user, new_access_token, new_refresh_token
 
     def revoke_refresh_token(self, email: str) -> None:
         user = self.user_repo.get_by_email(email)
         if user:
             self.user_repo.update_refresh_token(user, None)
+
+    def change_password(self, user, new_password: str) -> None:
+        if len(new_password) < MIN_PASSWORD_LENGTH:
+            raise ValidationException(
+                message=f"La contraseña debe tener al menos {MIN_PASSWORD_LENGTH} caracteres",
+                status_code=400,
+                error_code="WEAK_PASSWORD",
+            )
+        hashed = hash_password(new_password)
+        self.user_repo.reset_password(user, hashed)
+
+    def admin_reset_password(self, admin_user, target_user_id: int, new_password: str | None = None) -> dict:
+        if admin_user.role != "ADMIN":
+            raise ForbiddenException()
+
+        target = self.user_repo.get_by_id(target_user_id)
+        if not target:
+            raise UserNotActivate()
+
+        password = new_password or generate_temporary_password()
+        hashed = hash_password(password)
+        self.user_repo.admin_reset_password(target, hashed)
+        return {"user_id": target.id, "temp_password": password}

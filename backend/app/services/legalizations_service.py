@@ -3,6 +3,7 @@ from datetime import date
 import pandas as pd
 
 from ..core.exceptions.business import ValidationException
+from ..core.exceptions.auth import UserNotFoundException
 from ..etl.billers_processor import filter_by_billers_master
 from ..etl.filters.legalizations_filter import filter_legalizations
 from ..etl.transformers.legalizations_transformer import (
@@ -15,6 +16,7 @@ from ..etl.validators.legalizations_validator import validate_legalizations_data
 from ..repositories.parquet_repository import ParquetRepository
 from ..utils.config.settings import COLUMN_NAMES_LEGALIZATIONS, SECONDS_PER_RECORD_LEGALIZATIONS
 from .productivity_service import ProductivityService
+from ..etl.filters.legalizations_filter import validate_users_exist
 
 
 def process_legalizations(df: pd.DataFrame, df_facturadores=None) -> dict:
@@ -108,6 +110,11 @@ class LegalizationsService:
         end_date: date,
         selected_users: list[str] | None = None,
     ) -> dict:
+        if selected_users and len(selected_users) > 0 and "Todos" not in selected_users and "All" not in selected_users:
+            missing = validate_users_exist(legalizations_df, selected_users)
+            if missing:
+                raise UserNotFoundException(missing)
+
         filtered_df = filter_legalizations(
             df=legalizations_df,
             start_date=start_date,

@@ -4,8 +4,12 @@ File Management Utilities
 Auxiliary functions for reading, writing, and manipulating files.
 """
 
-import pandas as pd
+import logging
 import os
+
+import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 def save_to_parquet(df, filepath):
@@ -19,7 +23,7 @@ def save_to_parquet(df, filepath):
         df.astype(str).to_parquet(filepath, index=False)
         return True
     except Exception as e:
-        print(f"Error al guardar {filepath}: {e}")
+        logger.error("Error saving parquet %s: %s", filepath, e)
         return False
 
 
@@ -33,7 +37,7 @@ def load_from_parquet(filepath):
     try:
         return pd.read_parquet(filepath)
     except Exception as e:
-        print(f"Error al cargar {filepath}: {e}")
+        logger.error("Error loading parquet %s: %s", filepath, e)
         return None
 
 
@@ -70,6 +74,7 @@ def normalize_column_names(df):
 def read_file_robust(file, column_marker):
     """
     Reads a file robustly by automatically detecting headers.
+    Reads the file only once — reuses the already-loaded DataFrame.
     """
     try:
         if file.name.endswith('.csv'):
@@ -82,16 +87,14 @@ def read_file_robust(file, column_marker):
         if header_row is None:
             return None, None
 
-        file.seek(0)
-        if file.name.endswith('.csv'):
-            df = pd.read_csv(file, header=header_row)
-        else:
-            df = pd.read_excel(file, header=header_row)
+        df_raw.columns = df_raw.iloc[header_row].astype(str)
+        df = df_raw.iloc[header_row + 1:].reset_index(drop=True)
+        df = df.dropna(axis=1, how='all')
 
         df = normalize_column_names(df)
 
         return df, header_row
 
     except Exception as e:
-        print(f"Error al leer archivo: {e}")
+        logger.error("Error reading file: %s", e)
         return None, None

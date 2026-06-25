@@ -9,6 +9,8 @@ class HomeAdminKpis(BaseModel):
     active_users: int = 0
     total_valor_tercero: float = 0.0
     compliance: float = 0.0
+    horas_productivas_equipo: float = 0.0
+    cumplimiento_horas: float = 0.0
 
 
 class HomeAdminModuleCount(BaseModel):
@@ -31,6 +33,7 @@ class HomeAdminTrendPoint(BaseModel):
 class HomeAdminTopUser(BaseModel):
     usuario: str
     registros: int
+    horas_productivas: float = 0.0
 
 
 class HomeAdminModuleCompliance(BaseModel):
@@ -64,6 +67,8 @@ class HomeUserKpis(BaseModel):
     registros_hoy: int = 0
     radicaciones_pendientes: int = 0
     horas_productivas: float = 0.0
+    horas_esperadas: float = 0.0
+    cumplimiento_horas: float = 0.0
 
 
 class HomeUserModuleCount(BaseModel):

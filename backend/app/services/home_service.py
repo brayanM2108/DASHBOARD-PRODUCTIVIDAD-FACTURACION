@@ -2,6 +2,7 @@
 Home Service - Business logic for dashboard home
 """
 
+import logging
 from datetime import date, timedelta
 import pandas as pd
 
@@ -18,9 +19,11 @@ from ..utils.config.settings import (
     COLUMN_NAMES_BILLING,
     COLUMN_NAMES_LEGALIZATIONS,
     COLUMN_NAMES_RIPS,
+    PROCESS_SECONDS,
     SECONDS_PER_RECORD_BILLING,
     SECONDS_PER_RECORD_RIPS,
     SECONDS_PER_RECORD_LEGALIZATIONS,
+    WORKING_HOURS_PER_WEEK,
 )
 from ..api.schemas.home import (
     HomeAdminResponse,
@@ -89,10 +92,9 @@ class HomeService:
                     data["legalizations"] = pd.DataFrame()
             else:
                 data["legalizations"] = pd.DataFrame()
-        except Exception:
+        except Exception as e:
+            logging.getLogger(__name__).warning("Failed to load legalizations data: %s", e)
             data["legalizations"] = pd.DataFrame()
-
-        # Billing
         try:
             bill_df = self.billing_repo.load()
             if bill_df is not None and not bill_df.empty:
@@ -114,7 +116,8 @@ class HomeService:
                     data["billing"] = pd.DataFrame()
             else:
                 data["billing"] = pd.DataFrame()
-        except Exception:
+        except Exception as e:
+            logging.getLogger(__name__).warning("Failed to load billing data: %s", e)
             data["billing"] = pd.DataFrame()
 
         # RIPS
@@ -139,7 +142,8 @@ class HomeService:
                     data["rips"] = pd.DataFrame()
             else:
                 data["rips"] = pd.DataFrame()
-        except Exception:
+        except Exception as e:
+            logging.getLogger(__name__).warning("Failed to load RIPS data: %s", e)
             data["rips"] = pd.DataFrame()
 
         # Procesos administrativos
@@ -168,13 +172,46 @@ class HomeService:
                 data["processes"] = pd.DataFrame(proc_data)
             else:
                 data["processes"] = pd.DataFrame()
-        except Exception:
+        except Exception as e:
+            logging.getLogger(__name__).warning("Failed to load processes data: %s", e)
             data["processes"] = pd.DataFrame()
 
         return data
 
-    def _count_records(self, df: pd.DataFrame) -> int:
+    @staticmethod
+    def _count_records(df: pd.DataFrame) -> int:
         return len(df) if df is not None and not df.empty else 0
+
+    @staticmethod
+    def _calc_process_seconds(proc_df: pd.DataFrame) -> int:
+        if proc_df is None or proc_df.empty or "PROCESO" not in proc_df.columns:
+            return 0
+        total = 0
+        for proceso in proc_df["PROCESO"]:
+            total += PROCESS_SECONDS.get(str(proceso).upper().strip(), 60)
+        return total
+
+    @staticmethod
+    def _count_weekdays(start_date: date, end_date: date) -> int:
+        days = 0
+        current = start_date
+        while current <= end_date:
+            if current.weekday() < 5:
+                days += 1
+            current += timedelta(days=1)
+        return days
+
+    @staticmethod
+    def _calc_user_productive_seconds(
+        leg_df, bill_df, rips_df, proc_df,
+    ) -> int:
+        """Calculate total productive seconds for one user's data subsets."""
+        total = 0
+        total += HomeService._count_records(leg_df) * SECONDS_PER_RECORD_LEGALIZATIONS
+        total += HomeService._count_records(bill_df) * SECONDS_PER_RECORD_BILLING
+        total += HomeService._count_records(rips_df) * SECONDS_PER_RECORD_RIPS
+        total += HomeService._calc_process_seconds(proc_df)
+        return total
 
     def _count_today(self, df: pd.DataFrame, date_col_variants: list[str]) -> int:
         if df is None or df.empty:
@@ -186,7 +223,8 @@ class HomeService:
             today = date.today()
             dates = pd.to_datetime(df[date_col], errors="coerce").dt.date
             return int((dates == today).sum())
-        except Exception:
+        except Exception as e:
+            logging.getLogger(__name__).warning("Failed to count today's records: %s", e)
             return 0
 
     def _get_unique_users(self, df: pd.DataFrame, user_col_variants: list[str]) -> int:
@@ -197,7 +235,8 @@ class HomeService:
             return 0
         try:
             return int(df[user_col].dropna().astype(str).str.strip().nunique())
-        except Exception:
+        except Exception as e:
+            logging.getLogger(__name__).warning("Failed to count unique users: %s", e)
             return 0
 
     def _sum_valor_tercero(self, df: pd.DataFrame) -> float:
@@ -206,7 +245,8 @@ class HomeService:
         if VALUE_COLUMN in df.columns:
             try:
                 return float(pd.to_numeric(df[VALUE_COLUMN], errors="coerce").sum())
-            except Exception:
+            except Exception as e:
+                logging.getLogger(__name__).warning("Failed to sum valor tercero: %s", e)
                 return 0.0
         return 0.0
 
@@ -299,47 +339,73 @@ class HomeService:
         return trend
 
     def _compute_top_users(self, data: dict, top_n: int = 5) -> list[HomeAdminTopUser]:
-        """Calcula top N usuarios por registros totales."""
-        user_counts = {}
+        """Calcula top N usuarios por registros totales, incluyendo horas productivas."""
+        user_records = {}
+        user_leg = {}
+        user_bill = {}
+        user_rips = {}
+        user_proc_seconds = {}
 
         # Legalizaciones
         leg_df = data.get("legalizations")
         if leg_df is not None and not leg_df.empty:
             user_col = find_first_column_variant(leg_df, COLUMN_NAMES_LEGALIZATIONS.get("usuario", ["USUARIO"]))
             if user_col:
-                counts = leg_df[user_col].value_counts().to_dict()
-                for user, count in counts.items():
-                    user_counts[user] = user_counts.get(user, 0) + count
+                for user in leg_df[user_col].unique():
+                    mask = leg_df[user_col] == user
+                    count = int(mask.sum())
+                    user_records[user] = user_records.get(user, 0) + count
+                    user_leg[user] = count
 
         # Billing
         bill_df = data.get("billing")
         if bill_df is not None and not bill_df.empty:
             user_col = find_first_column_variant(bill_df, COLUMN_NAMES_BILLING.get("usuario", ["USUARIO"]))
             if user_col:
-                counts = bill_df[user_col].value_counts().to_dict()
-                for user, count in counts.items():
-                    user_counts[user] = user_counts.get(user, 0) + count
+                for user in bill_df[user_col].unique():
+                    mask = bill_df[user_col] == user
+                    count = int(mask.sum())
+                    user_records[user] = user_records.get(user, 0) + count
+                    user_bill[user] = count
 
         # RIPS
         rips_df = data.get("rips")
         if rips_df is not None and not rips_df.empty:
             user_col = "NOMBRE_USUARIO" if "NOMBRE_USUARIO" in rips_df.columns else find_first_column_variant(rips_df, COLUMN_NAMES_RIPS.get("documento", ["USUARIO_QUE_COMPLETA_RIPS"]))
             if user_col:
-                counts = rips_df[user_col].value_counts().to_dict()
-                for user, count in counts.items():
-                    user_counts[user] = user_counts.get(user, 0) + count
+                for user in rips_df[user_col].unique():
+                    mask = rips_df[user_col] == user
+                    count = int(mask.sum())
+                    user_records[user] = user_records.get(user, 0) + count
+                    user_rips[user] = count
 
         # Procesos
         proc_df = data.get("processes")
         if proc_df is not None and not proc_df.empty:
-            if "NOMBRE" in proc_df.columns:
-                counts = proc_df["NOMBRE"].value_counts().to_dict()
-                for user, count in counts.items():
-                    user_counts[user] = user_counts.get(user, 0) + count
+            if "NOMBRE" in proc_df.columns and "PROCESO" in proc_df.columns:
+                for user in proc_df["NOMBRE"].unique():
+                    mask = proc_df["NOMBRE"] == user
+                    count = int(mask.sum())
+                    user_records[user] = user_records.get(user, 0) + count
+                    seconds = 0
+                    for proceso in proc_df.loc[mask, "PROCESO"]:
+                        seconds += PROCESS_SECONDS.get(str(proceso).upper().strip(), 60)
+                    user_proc_seconds[user] = seconds
 
-        # Ordenar y tomar top N
-        sorted_users = sorted(user_counts.items(), key=lambda x: x[1], reverse=True)[:top_n]
-        return [HomeAdminTopUser(usuario=user, registros=count) for user, count in sorted_users]
+        sorted_users = sorted(user_records.items(), key=lambda x: x[1], reverse=True)[:top_n]
+
+        result = []
+        for user, count in sorted_users:
+            total_seconds = (
+                user_leg.get(user, 0) * SECONDS_PER_RECORD_LEGALIZATIONS
+                + user_bill.get(user, 0) * SECONDS_PER_RECORD_BILLING
+                + user_rips.get(user, 0) * SECONDS_PER_RECORD_RIPS
+                + user_proc_seconds.get(user, 0)
+            )
+            horas = round(total_seconds / 3600, 1)
+            result.append(HomeAdminTopUser(usuario=user, registros=count, horas_productivas=horas))
+
+        return result
 
     def _compute_module_compliance(self, data: dict) -> list[HomeAdminModuleCompliance]:
         """Calcula % de cumplimiento por módulo."""
@@ -393,8 +459,8 @@ class HomeService:
                                 severity="critical",
                             )
                         )
-            except Exception:
-                pass
+            except Exception as e:
+                logging.getLogger(__name__).warning("Failed to check radicacion alerts: %s", e)
 
         # Módulos sin datos
         if data.get("legalizations") is None or data.get("legalizations").empty:
@@ -513,12 +579,23 @@ class HomeService:
         total_valor = self._sum_valor_tercero(data.get("billing"))
         compliance = self._compute_compliance(total_records, start_date, end_date)
 
+        total_seconds = self._calc_user_productive_seconds(
+            data.get("legalizations"), data.get("billing"),
+            data.get("rips"), data.get("processes"),
+        )
+        horas_productivas_equipo = round(total_seconds / 3600, 1)
+        weekdays = self._count_weekdays(start_date, end_date)
+        horas_esperadas_equipo = round(weekdays * WORKING_HOURS_PER_WEEK / 5 * active_users if active_users > 0 else weekdays * WORKING_HOURS_PER_WEEK / 5, 1)
+        cumplimiento_horas = round(horas_productivas_equipo / horas_esperadas_equipo * 100, 1) if horas_esperadas_equipo > 0 else 0.0
+
         kpis = HomeAdminKpis(
             total_records=total_records,
             records_today=records_today,
             active_users=active_users,
             total_valor_tercero=total_valor,
             compliance=compliance,
+            horas_productivas_equipo=horas_productivas_equipo,
+            cumplimiento_horas=cumplimiento_horas,
         )
 
         # Module counts
@@ -580,8 +657,8 @@ class HomeService:
                 bill_df = prepare_radicacion_df(bill_df)
                 if bill_df is not None and "VENCIDA" in bill_df.columns:
                     radicaciones_pendientes = int(bill_df["VENCIDA"].sum())
-            except Exception:
-                pass
+            except Exception as e:
+                logging.getLogger(__name__).warning("Failed to count pending radicaciones: %s", e)
 
         # Horas productivas
         leg_count = self._count_records(data.get("legalizations"))
@@ -593,14 +670,20 @@ class HomeService:
             leg_count * SECONDS_PER_RECORD_LEGALIZATIONS
             + bill_count * SECONDS_PER_RECORD_BILLING
             + rips_count * SECONDS_PER_RECORD_RIPS
-            + proc_count * 60  # Estimado 60s por proceso
+            + self._calc_process_seconds(data.get("processes"))
         )
         horas_productivas = round(total_seconds / 3600, 1)
+
+        weekdays = self._count_weekdays(start_date, end_date)
+        horas_esperadas = round(weekdays * WORKING_HOURS_PER_WEEK / 5, 1)
+        cumplimiento_horas = round(horas_productivas / horas_esperadas * 100, 1) if horas_esperadas > 0 else 0.0
 
         kpis = HomeUserKpis(
             registros_hoy=registros_hoy,
             radicaciones_pendientes=radicaciones_pendientes,
             horas_productivas=horas_productivas,
+            horas_esperadas=horas_esperadas,
+            cumplimiento_horas=cumplimiento_horas,
         )
 
         # Module counts
@@ -636,8 +719,8 @@ class HomeService:
                         try:
                             dates = pd.to_datetime(df[date_col], errors="coerce").dt.date
                             day_count += int((dates == day).sum())
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.getLogger(__name__).debug("Trend point parse failed for %s: %s", day_str, e)
 
             trend.append(HomeUserTrendPoint(fecha=day_str, registros=day_count))
 

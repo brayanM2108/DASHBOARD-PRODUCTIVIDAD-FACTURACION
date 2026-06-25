@@ -132,7 +132,7 @@ def filter_by_billers_document(
         return result_df
 
     result_df = df.copy()
-    result_df["_doc_norm"] = result_df[source_column].astype(str).str.strip().str.upper()
+    result_df["_doc_norm"] = result_df[source_column].astype(str).str.strip().str.replace(r"\.0$", "", regex=True).str.upper()
     result_df = result_df[result_df["_doc_norm"].isin(valid_docs)].copy()
 
     billers_map = (
@@ -140,7 +140,7 @@ def filter_by_billers_document(
         .dropna(subset=[biller_doc_column])
         .copy()
     )
-    billers_map["_doc_key"] = billers_map[biller_doc_column].astype(str).str.strip().str.upper()
+    billers_map["_doc_key"] = billers_map[biller_doc_column].astype(str).str.strip().str.replace(r"\.0$", "", regex=True).str.upper()
     billers_map = billers_map.drop_duplicates(subset=["_doc_key"])
 
     result_df = result_df.merge(
@@ -152,7 +152,7 @@ def filter_by_billers_document(
         how="left",
     ).drop(columns=["_doc_norm", "_doc_key"])
 
-    if source_column in result_df.columns:
+    if "NOMBRE_USUARIO" in result_df.columns and source_column in result_df.columns:
         result_df["NOMBRE_USUARIO"] = result_df["NOMBRE_USUARIO"].fillna(
             result_df[source_column].astype(str)
         )
@@ -202,7 +202,7 @@ def filter_by_billers_master(
         return result_df
 
     result_df = df.copy()
-    result_df["_doc_norm"] = result_df[document_column].astype(str).str.strip().str.upper()
+    result_df["_doc_norm"] = result_df[document_column].astype(str).str.strip().str.replace(r"\.0$", "", regex=True).str.upper()
     result_df = result_df[result_df["_doc_norm"].isin(valid_docs)].copy()
 
     billers_map = (
@@ -210,7 +210,7 @@ def filter_by_billers_master(
         .dropna(subset=[biller_doc_column])
         .copy()
     )
-    billers_map["_doc_key"] = billers_map[biller_doc_column].astype(str).str.strip().str.upper()
+    billers_map["_doc_key"] = billers_map[biller_doc_column].astype(str).str.strip().str.replace(r"\.0$", "", regex=True).str.upper()
     billers_map = billers_map.drop_duplicates(subset=["_doc_key"])
 
     result_df = result_df.merge(
@@ -221,5 +221,15 @@ def filter_by_billers_master(
         right_on="_doc_key",
         how="left",
     ).drop(columns=["_doc_norm", "_doc_key"])
+
+    if "NOMBRE_USUARIO" in result_df.columns:
+        if document_column in result_df.columns:
+            result_df["NOMBRE_USUARIO"] = result_df["NOMBRE_USUARIO"].fillna(
+                result_df[document_column].astype(str)
+            )
+        if "USUARIO" in result_df.columns:
+            result_df["USUARIO"] = result_df["NOMBRE_USUARIO"].fillna(
+                result_df["USUARIO"].astype(str)
+            )
 
     return result_df

@@ -5,6 +5,8 @@ Writes report data dicts (produced by report_service.py) into
 formatted .xlsx files and returns them as bytes for Streamlit download.
 """
 
+import logging
+
 import io
 from datetime import date
 
@@ -241,8 +243,8 @@ def _safe_bar(df: pd.DataFrame | None, x_col: str, y_col: str, title: str):
                 text=y_col,
             )
             fig.update_traces(marker_color=f"#{MAIN_COLOR}")
-    except Exception:
-
+    except Exception as e:
+        logging.getLogger(__name__).debug("Complex chart failed, falling back to simple bar: %s", e)
         fig = px.bar(df, x=x_col, y=y_col, title=title, text=y_col)
 
     fig.update_layout(template="plotly_white", xaxis_tickangle=-45, colorway=PLOTLY_PALETTE)
