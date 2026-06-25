@@ -18,6 +18,8 @@ class User(Base):
 
     is_active = Column(Boolean, default=True)
 
+    must_change_password = Column(Boolean, default=True)
+
     role = Column(String(50))
 
     refresh_token_hash = Column(String(255), nullable=True)

@@ -59,6 +59,20 @@ class UserRepository:
         self.db.refresh(user)
         return user
 
+    def reset_password(self, user: User, new_hashed_password: str) -> User:
+        user.hashed_password = new_hashed_password
+        user.must_change_password = False
+        self.db.commit()
+        self.db.refresh(user)
+        return user
+
+    def admin_reset_password(self, user: User, new_hashed_password: str) -> User:
+        user.hashed_password = new_hashed_password
+        user.must_change_password = True
+        self.db.commit()
+        self.db.refresh(user)
+        return user
+
     def get_all_paginated(
         self,
         page: int = 1,

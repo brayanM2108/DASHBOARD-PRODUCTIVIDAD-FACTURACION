@@ -31,5 +31,6 @@ def is_authenticated() -> bool:
     st.session_state.pop("token", None)
     st.session_state.pop("refresh_token", None)
     st.session_state.pop("user", None)
+    st.session_state.pop("token_exp", None)
     st.session_state.pop("_just_logged_in", None)
     return False

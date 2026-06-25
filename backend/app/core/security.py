@@ -23,9 +23,9 @@ def verify_password(password: str, hashed: str) -> bool:
     return pwd_context.verify(normalized, hashed)
 
 
-def create_access_token(subject: str, username: str | None = None, role: str | None = None) -> str:
+def create_access_token(subject: str, username: str | None = None, role: str | None = None, is_active: bool = True) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
-    payload = {"sub": subject, "exp": expire, "type": "access"}
+    payload = {"sub": subject, "exp": expire, "type": "access", "is_active": is_active}
     if username:
         payload["username"] = username
     if role:
@@ -33,9 +33,9 @@ def create_access_token(subject: str, username: str | None = None, role: str | N
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
-def create_refresh_token(subject: str, username: str | None = None, role: str | None = None) -> str:
+def create_refresh_token(subject: str, username: str | None = None, role: str | None = None, is_active: bool = True) -> str:
     expire = datetime.now(timezone.utc) + timedelta(days=settings.JWT_REFRESH_EXPIRE_DAYS)
-    payload = {"sub": subject, "exp": expire, "type": "refresh"}
+    payload = {"sub": subject, "exp": expire, "type": "refresh", "is_active": is_active}
     if username:
         payload["username"] = username
     if role:

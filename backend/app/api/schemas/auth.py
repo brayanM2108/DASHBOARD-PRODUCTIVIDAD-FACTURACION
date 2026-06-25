@@ -25,3 +25,12 @@ class RegisterRequest(BaseModel):
 
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
+
+
+class ChangePasswordRequest(BaseModel):
+    new_password: str
+
+
+class AdminResetPasswordRequest(BaseModel):
+    user_id: int
+    new_password: str | None = None
