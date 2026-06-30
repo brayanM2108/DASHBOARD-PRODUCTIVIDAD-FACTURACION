@@ -15,4 +15,3 @@ class User:
     email: str | None = None
     document: str | None = None
     is_active: bool = True
-    role: str | None = None

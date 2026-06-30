@@ -20,8 +20,6 @@ class RegisterRequest(BaseModel):
     document: str
     username: str
     password: str
-    role: str | None = None
-
 
 class RefreshTokenRequest(BaseModel):
     refresh_token: str

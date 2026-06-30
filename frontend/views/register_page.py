@@ -13,7 +13,6 @@ from frontend.exceptions import ApiException
 from frontend.services.auth_service import AuthFrontendService
 from ui.goleman_theme import GolemanTheme
 
-_ROLES = ["Facturador", "Auditor", "Administrativo", "Coordinador"]
 _LOGO_CACHE: str | None = None
 
 
@@ -107,8 +106,7 @@ def _inject_register_css() -> None:
     }}
 
     /* ── Labels ── */
-    [data-testid="stMainBlockContainer"] [data-testid="stTextInput"] label,
-    [data-testid="stMainBlockContainer"] [data-testid="stSelectbox"] label {{
+    [data-testid="stMainBlockContainer"] [data-testid="stTextInput"] label {{
         font-size: 12px !important;
         font-weight: 500 !important;
         color: {GolemanTheme.MUTED} !important;
@@ -143,11 +141,6 @@ def _inject_register_css() -> None:
     [data-testid="stMainBlockContainer"] [data-testid="stTextInput"] input {{
         padding: 10px 12px !important;
         height: 44px !important;
-    }}
-
-    /* ── Selectbox de rol ── */
-    [data-testid="stMainBlockContainer"] [data-testid="stSelectbox"] > div > div {{
-        min-height: 44px !important;
     }}
 
     /* ── Checkbox de términos ── */
@@ -308,8 +301,6 @@ def _render_layout() -> None:
             placeholder="usuario@ipsgoleman.com.co",
         )
 
-        rol = st.selectbox("ROL", _ROLES)
-
         c1, c2 = st.columns(2)
         with c1:
             password = st.text_input(
@@ -352,7 +343,6 @@ def _render_layout() -> None:
                         document=documento.strip(),
                         username=f"{nombre.strip()} {apellido.strip()}",
                         password=password,
-                        role=rol,
                     )
                     st.success("Cuenta creada. Ya puedes iniciar sesión.")
                     st.session_state["auth_view"] = "login"

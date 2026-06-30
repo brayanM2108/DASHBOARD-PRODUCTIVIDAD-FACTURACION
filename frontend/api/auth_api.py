@@ -40,8 +40,7 @@ class AuthApi:
         email: str,
         document: str,
         username: str,
-        password: str,
-        role: str | None = None,
+        password: str
     ) -> dict[str, Any]:
         url = build_api_url("auth/register")
         try:
@@ -52,7 +51,6 @@ class AuthApi:
                     "document": document,
                     "username": username,
                     "password": password,
-                    "role": role,
                 },
                 timeout=30,
             )

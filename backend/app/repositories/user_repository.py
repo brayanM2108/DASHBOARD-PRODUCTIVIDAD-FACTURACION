@@ -22,7 +22,6 @@ class UserRepository:
         document: str,
         hashed_password: str,
         is_active: bool = True,
-        role: str | None = None,
     ) -> User:
         user = User(
             username=username,
@@ -30,7 +29,6 @@ class UserRepository:
             document=document,
             hashed_password=hashed_password,
             is_active=is_active,
-            role=role,
         )
         self.db.add(user)
         self.db.flush()

@@ -39,9 +39,8 @@ class AuthFrontendService:
         username: str,
         document: str,
         password: str,
-        role: str | None = None,
     ) -> None:
-        self.api.register(email, document, username, password, role)
+        self.api.register(email, document, username, password)
 
     def try_refresh_token(self) -> bool:
         refresh_token = st.session_state.get("refresh_token")
@@ -75,7 +74,6 @@ class AuthFrontendService:
             id=user_data.get("id"),
             username=user_data.get("username"),
             email=user_data.get("email"),
-            role=user_data.get("role"),
             is_active=user_data.get("is_active", True),
         )
 
