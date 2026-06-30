@@ -167,14 +167,44 @@ def render_tab_manual_billing():
 
     records = st.session_state["_mb_records"]
 
-    from frontend.components.sidebar import _get_logo_b64
-    logo = _get_logo_b64()
+    # ── Header: title + button (orange) ──
     st.markdown(f"""
-    <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
-      <img src="data:image/svg+xml;base64,{logo}" style="width:44px;height:auto;flex-shrink:0;border-radius:8px"/>
-      <div style="font-size:20px;font-weight:700;color:{GolemanTheme.NAVY}">Procesos Administrativos</div>
-    </div>
+    <style>
+    [data-testid="stMainBlockContainer"] button[kind="primary"] {{
+        background: {GolemanTheme.ORANGE} !important;
+        color: {GolemanTheme.WHITE} !important;
+        border: none !important;
+        border-radius: 10px !important;
+        height: 38px !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        letter-spacing: .02em !important;
+        box-shadow: 0 4px 14px rgba(249,120,56,.35) !important;
+        transition: background .15s ease !important;
+    }}
+    [data-testid="stMainBlockContainer"] button[kind="primary"]:hover {{
+        background: #e86a2b !important;
+        box-shadow: 0 6px 20px rgba(249,120,56,.45) !important;
+    }}
+    </style>
     """, unsafe_allow_html=True)
+
+    c_title, c_btn = st.columns([3, 1])
+    with c_title:
+        st.markdown(f"""
+        <div style="font-size:20px;font-weight:700;color:{GolemanTheme.NAVY}">Procesos Administrativos</div>
+        <div style="font-size:12px;color:{GolemanTheme.MUTED};margin-top:2px">Monitorea la productividad y registra nuevos procesos administrativos.</div>
+        """, unsafe_allow_html=True)
+    with c_btn:
+        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+        if st.button(
+            "+ Nuevo registro",
+            use_container_width=True,
+            type="primary",
+            key="mb_toggle_form",
+        ):
+            st.session_state["_mb_show_form"] = not st.session_state.get("_mb_show_form", False)
+            st.rerun()
 
     if not records:
         st.markdown(
@@ -188,19 +218,6 @@ def render_tab_manual_billing():
         return
 
     df = service.to_dataframe(records)
-
-    c_title, c_btn = st.columns([3, 1])
-    with c_title:
-        _section_title("Productividad de Procesos Administrativos")
-    with c_btn:
-        if st.button(
-            "+ Nuevo registro",
-            use_container_width=True,
-            type="primary",
-            key="mb_toggle_form",
-        ):
-            st.session_state["_mb_show_form"] = not st.session_state.get("_mb_show_form", False)
-            st.rerun()
 
     if st.session_state.get("_mb_show_form", False):
         _render_registration_form(service)

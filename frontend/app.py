@@ -94,9 +94,6 @@ def main():
 
     render_state_data()
 
-    if nav_tab not in ("Cargar Archivos", "Panel Admin"):
-        render_global_filters_bar()
-
     _tab_titles = {
         "Inicio": "Dashboard de Productividad",
         "Legalizaciones": "Legalizaciones",
@@ -112,6 +109,9 @@ def main():
         f'<div class="g-tab-title">{_tab_titles.get(nav_tab, "Dashboard")}</div>',
         unsafe_allow_html=True,
     )
+
+    if nav_tab not in ("Cargar Archivos", "Panel Admin"):
+        render_global_filters_bar()
 
     if nav_tab == "Inicio":
         HomePage.render()
