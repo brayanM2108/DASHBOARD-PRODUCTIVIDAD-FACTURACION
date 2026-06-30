@@ -41,7 +41,7 @@ class DataApi:
         response = requests.get(
             url,
             headers=self._headers(),
-            timeout=30,
+            timeout=600,
         )
         response.raise_for_status()
         return response.json()
@@ -51,7 +51,7 @@ class DataApi:
         response = requests.get(
             url,
             headers=self._headers(),
-            timeout=60,
+            timeout=600,
         )
         response.raise_for_status()
         return response.json()
