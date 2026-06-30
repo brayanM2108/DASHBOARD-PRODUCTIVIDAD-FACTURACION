@@ -23,6 +23,7 @@ from ..utils.config.settings import (
     SECONDS_PER_RECORD_BILLING,
     SECONDS_PER_RECORD_RIPS,
     SECONDS_PER_RECORD_LEGALIZATIONS,
+    WORKING_HOURS_PER_DAY,
     WORKING_HOURS_PER_WEEK,
 )
 from ..api.schemas.home import (
@@ -250,28 +251,35 @@ class HomeService:
                 return 0.0
         return 0.0
 
-    def _compute_compliance(self, total_records: int, start_date: date, end_date: date) -> float:
-        """Calcula % de cumplimiento basado en actividad diaria vs promedio esperado."""
-        if total_records == 0:
+    def _compute_compliance(
+        self,
+        total_records: int,
+        start_date: date,
+        end_date: date,
+        active_users: int = 0,
+    ) -> float:
+        """Calcula % de cumplimiento comparando registros reales vs capacidad teórica del equipo."""
+        if total_records == 0 or active_users == 0:
             return 0.0
-        
+
         days = (end_date - start_date).days + 1
         if days <= 0:
             return 0.0
-        
-        # Promedio diario esperado (asumiendo 5 días hábiles por semana)
-        working_days = int(days * 5 / 7)
+
+        working_days = self._count_weekdays(start_date, end_date)
         if working_days == 0:
             return 0.0
-        
-        daily_avg_expected = total_records / working_days
-        
-        # Registros de hoy
-        today = date.today()
-        # Nota: esto es simplificado, en producción se debería calcular con datos reales
-        daily_avg_actual = total_records / days if days > 0 else 0
-        
-        compliance = (daily_avg_actual / daily_avg_expected * 100) if daily_avg_expected > 0 else 0
+
+        avg_seconds = (
+            SECONDS_PER_RECORD_LEGALIZATIONS
+            + SECONDS_PER_RECORD_BILLING
+            + SECONDS_PER_RECORD_RIPS
+        ) / 3
+
+        total_available_seconds = active_users * working_days * WORKING_HOURS_PER_DAY * 3600
+        expected_records = total_available_seconds / avg_seconds if avg_seconds > 0 else 0
+
+        compliance = (total_records / expected_records * 100) if expected_records > 0 else 0
         return min(max(compliance, 0), 100)
 
     def _compute_daily_trend_admin(
@@ -577,7 +585,7 @@ class HomeService:
         ])
 
         total_valor = self._sum_valor_tercero(data.get("billing"))
-        compliance = self._compute_compliance(total_records, start_date, end_date)
+        compliance = self._compute_compliance(total_records, start_date, end_date, active_users)
 
         total_seconds = self._calc_user_productive_seconds(
             data.get("legalizations"), data.get("billing"),

@@ -67,7 +67,7 @@ class HomePage:
         cls._render_hero_admin(nombre, rol, hoy, data)
         cls._render_kpis_admin(data)
         cls._render_charts_row_admin(data)
-        cls._render_compliance_ranking_row_admin(data)
+        cls._render_top_users_admin(data)
         cls._render_alerts_insights_row_admin(data)
 
 
@@ -75,9 +75,7 @@ class HomePage:
     def _render_hero_admin(cls, nombre: str, rol: str, hoy: datetime, data: HomeAdminResponse):
         leg_count = data.modules.legalizaciones
         valor = data.kpis.total_valor_tercero
-        compliance = data.kpis.compliance
         horas_eq = data.kpis.horas_productivas_equipo
-        cumpl_horas = data.kpis.cumplimiento_horas
 
         def _fmt_money(v):
             if abs(v) >= 1_000_000_000:
@@ -116,8 +114,7 @@ class HomePage:
           <div style="display:flex;gap:14px;position:relative;z-index:1">
             {cls._hero_stat("Legalizaciones", f"{leg_count:,}")}
             {cls._hero_stat("Valor Facturado", _fmt_money(valor), accent=True)}
-            {cls._hero_stat("Cumplimiento", f"{compliance:.0f}%")}
-            {cls._hero_stat("Horas equipo", f"{horas_eq:.0f}h", accent=False)}
+            {cls._hero_stat("Horas productivas", f"{horas_eq:.0f}h", accent=False)}
           </div>
         </div>
         """, unsafe_allow_html=True)
@@ -143,7 +140,7 @@ class HomePage:
                 return f"${v / 1_000_000:,.1f}M"
             return f"${v:,.0f}"
 
-        k1, k2, k3, k4, k5, k6 = st.columns(6)
+        k1, k2, k3, k4, k5 = st.columns(5)
         with k1:
             st.metric("Total registros", f"{data.kpis.total_records:,}")
         with k2:
@@ -153,8 +150,6 @@ class HomePage:
         with k4:
             st.metric("Valor facturado", _fmt_money(data.kpis.total_valor_tercero))
         with k5:
-            st.metric("Cumplimiento", f"{data.kpis.compliance:.0f}%")
-        with k6:
             st.metric("Productividad", f"{data.kpis.cumplimiento_horas:.0f}%")
 
     @classmethod
@@ -241,40 +236,9 @@ class HomePage:
         st.plotly_chart(fig, use_container_width=True)
 
     @classmethod
-    def _render_compliance_ranking_row_admin(cls, data: HomeAdminResponse):
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown(GolemanTheme.section_header("Cumplimiento por módulo"), unsafe_allow_html=True)
-            cls._render_compliance_admin(data.module_compliance)
-        with col2:
-            st.markdown(GolemanTheme.section_header("Top usuarios"), unsafe_allow_html=True)
-            cls._render_ranking_admin(data.top_users)
-
-    @classmethod
-    def _render_compliance_admin(cls, compliance_list):
-        if not compliance_list or all(c.porcentaje == 0 for c in compliance_list):
-            st.markdown(f'<div class="g-chart-card"><div class="g-muted-note">No hay datos de cumplimiento.</div></div>', unsafe_allow_html=True)
-            return
-
-        def bar_color(pct: float) -> str:
-            if pct >= 80:
-                return GolemanTheme.SUCCESS
-            if pct >= 40:
-                return GolemanTheme.ORANGE
-            return GolemanTheme.DANGER
-
-        n = GolemanTheme.NAVY
-        b = GolemanTheme.BORDER
-        w = GolemanTheme.WHITE
-        bl = GolemanTheme.BLUE
-
-        html = f'<div style="background:{w};border:0.5px solid {b};border-left:3px solid {bl};border-radius:10px;padding:16px 18px;box-shadow:0 1px 4px rgba(0,9,39,.04)">'
-        for item in compliance_list:
-            c = bar_color(item.porcentaje)
-            html += f'<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px;color:{n};margin-bottom:3px"><span>{item.modulo}</span><span style="font-weight:600">{item.porcentaje:.0f}%</span></div><div style="height:8px;background:{b};border-radius:6px;overflow:hidden"><div style="height:100%;width:{min(item.porcentaje, 100):.0f}%;background:{c};border-radius:6px"></div></div></div>'
-        html += '</div>'
-
-        st.markdown(html, unsafe_allow_html=True)
+    def _render_top_users_admin(cls, data: HomeAdminResponse):
+        st.markdown(GolemanTheme.section_header("Top usuarios"), unsafe_allow_html=True)
+        cls._render_ranking_admin(data.top_users)
 
     @classmethod
     def _render_ranking_admin(cls, top_users):
@@ -408,14 +372,13 @@ class HomePage:
     def _render_hero_user(cls, username: str, role: str, hoy: datetime, data: HomeUserResponse):
         horas = data.kpis.horas_productivas
         esperadas = data.kpis.horas_esperadas
-        cumpl = data.kpis.cumplimiento_horas
-        pct_bar = min(cumpl, 100)
+        pct_bar = min(data.kpis.cumplimiento_horas, 100) if esperadas > 0 else 0
 
         horas_stat_html = f"""
         <div style="background:rgba(249,120,56,.1);border:0.5px solid rgba(249,120,56,.3);border-radius:10px;
                     padding:10px 14px;text-align:center;min-width:130px">
           <div style="font-size:18px;font-weight:600;color:#F97838">{horas:.1f}h</div>
-          <div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px;white-space:nowrap">de {esperadas:.0f}h ({cumpl:.0f}%)</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px;white-space:nowrap">de {esperadas:.0f}h</div>
           <div style="margin-top:6px;height:4px;background:rgba(255,255,255,.15);border-radius:3px;overflow:hidden">
             <div style="height:100%;width:{pct_bar:.0f}%;background:#F97838;border-radius:3px"></div>
           </div>
